@@ -1,0 +1,13 @@
+{
+  "task_rotation": [
+    "mandala",
+    "diary",
+    "mindfulness"
+  ],
+  "last_assigned_index": 2,
+  "assignments": {
+    "FCI20": "mandala",
+    "JOF": "diary",
+    "MA39": "mindfulness"
+  }
+}

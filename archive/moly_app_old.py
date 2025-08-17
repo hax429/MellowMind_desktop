@@ -23,7 +23,7 @@ BACKGROUND_COLOR = '#220000'  # Dark red background for stress
 MAIN_FRAME_COLOR = '#220000'  # Main container color
 
 # MODE SETTINGS
-DEVELOPER_MODE = True   # Show instructions (Press N for next prompt, etc.)
+DEVELOPER_MODE = False   # Show instructions (Press N for next prompt, etc.)
 FOCUS_MODE = True      # Keep window always on top and maintain focus
 
 # TASK SELECTION MODE
@@ -36,7 +36,7 @@ DESCRIPTIVE_LINE_LOGGING = True  # Log sentences when user types "." in descript
 # RELAXATION SCREEN SETTINGS
 SHOW_RELAXATION_TEXT = True  # Whether to show text overlay on relaxation screen
 RELAXATION_TEXT = "Please Relax"  # Text to display on relaxation screen
-RELAXATION_VIDEO_PATH = "/Users/hax429/Developer/test/MellowMind_desktop/res/screen.mkv"
+RELAXATION_VIDEO_PATH = "/Users/hax429/Developer/Internship/moly/res/screen.mkv"
 
 # COUNTDOWN TIMER SETTINGS
 # Global countdown toggle (master switch)
@@ -68,7 +68,7 @@ DESCRIPTIVE_PROMPTS = [
 ]
 
 # STROOP SCREEN SETTINGS
-STROOP_VIDEO_PATH = "/Users/hax429/Developer/test/MellowMind_desktop/res/stroop.mov"
+STROOP_VIDEO_PATH = "/Users/hax429/Developer/Internship/MellowMind_desktop/res/stroop.mov"
 
 # MATH TASK SETTINGS
 MATH_STARTING_NUMBER = 4000
@@ -1893,7 +1893,7 @@ Choose an option:"""
             controls.pack(pady=10)
         
         # Initialize video but don't start playing
-        self.init_video(self.stroop_video, 180)
+        self.init_video(self.stroop_video)
         
         # Bind keys (only allow navigation in developer mode)
         if DEVELOPER_MODE:
@@ -1965,6 +1965,10 @@ Choose an option:"""
             if not self.is_playing and not self.is_paused:
                 # Start playing
                 self.is_playing = True
+                # Set video to start at 3:00 (180 seconds)
+                fps = self.cap.get(cv2.CAP_PROP_FPS)
+                frame_number = int(180 * fps)  # 180 seconds * fps
+                self.cap.set(cv2.CAP_PROP_POS_FRAMES, frame_number)
                 self.update_status("🎬 Playing...", '#66ff99')
                 self.start_stroop_video_loop()
                 
@@ -2702,27 +2706,15 @@ Choose an option:"""
     
     # =================== COMMON VIDEO METHODS ===================
     
-    def init_video(self, video_path, start_time=0):
-        """Initialize video capture.
-        
-        Args:
-            video_path: Path to the video file
-            start_time: Starting time in seconds (default: 0)
-        """
+    def init_video(self, video_path):
+        """Initialize video capture."""
         if os.path.exists(video_path):
             self.cap = cv2.VideoCapture(video_path)
             if not self.cap.isOpened():
                 print(f"Warning: Could not open video file {video_path}")
                 self.cap = None
             else:
-                # Set starting position if specified
-                if start_time > 0:
-                    fps = self.cap.get(cv2.CAP_PROP_FPS)
-                    start_frame = int(start_time * fps)
-                    self.cap.set(cv2.CAP_PROP_POS_FRAMES, start_frame)
-                    print(f"✅ Video initialized: {os.path.basename(video_path)} (starting at {start_time}s)")
-                else:
-                    print(f"✅ Video initialized: {os.path.basename(video_path)}")
+                print(f"✅ Video initialized: {os.path.basename(video_path)}")
         else:
             print(f"Warning: Video file not found at {video_path}")
             self.cap = None

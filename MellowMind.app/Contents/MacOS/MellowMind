@@ -1,0 +1,52 @@
+#!/bin/bash
+
+# MellowMind Desktop App Bundle Launcher
+# This script is executed when the app bundle is double-clicked
+
+# Get the directory where the app bundle is located
+APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../" && pwd)"
+
+# Change to the app directory (where app.py is located)
+cd "$APP_DIR"
+
+echo "🧘 Starting MellowMind Desktop Application..."
+echo "📂 Working directory: $APP_DIR"
+
+# Function to show error dialog
+show_error() {
+    osascript -e "display dialog \"$1\" with title \"MellowMind Error\" buttons {\"OK\"} default button \"OK\" with icon stop"
+}
+
+# Check if Python environment exists
+if [ -d "/opt/miniconda3/envs/moly" ]; then
+    echo "🐍 Using conda environment: moly"
+    PYTHON_PATH="/opt/miniconda3/envs/moly/bin/python"
+elif command -v python3 &> /dev/null; then
+    echo "🐍 Using system Python3"
+    PYTHON_PATH="python3"
+else
+    echo "❌ Error: Python3 not found!"
+    show_error "Python3 not found! Please install Python3 or activate the moly conda environment."
+    exit 1
+fi
+
+# Check if app.py exists in src directory
+if [ ! -f "src/app.py" ]; then
+    echo "❌ Error: src/app.py not found in $APP_DIR"
+    show_error "src/app.py not found in $APP_DIR. Please make sure the application files are in the correct location."
+    exit 1
+fi
+
+# Check for required dependencies
+echo "🔍 Checking dependencies..."
+"$PYTHON_PATH" -c "import tkinter, cv2, PyPDF2" 2>/dev/null
+if [ $? -ne 0 ]; then
+    echo "⚠️ Warning: Some dependencies may be missing"
+    show_error "Some required Python packages may be missing. The app may not work correctly. Please install: tkinter, opencv-python, PyPDF2"
+fi
+
+# Launch the application
+echo "🚀 Launching MellowMind..."
+"$PYTHON_PATH" src/app.py
+
+echo "👋 MellowMind application has closed"

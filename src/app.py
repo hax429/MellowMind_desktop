@@ -346,29 +346,29 @@ class MolyApp:
         self.current_screen = "consent"
         
         # Set neutral background for consent screen
-        self.main_frame.configure(bg='white')
+        self.main_frame.configure(bg='#f0f0f0')
         
         # Title
         title = tk.Label(
             self.main_frame,
             text=CONSENT_TITLE,
-            font=('Arial', 28, 'bold'),
-            fg='black',
-            bg='white'
+            font=('Arial', 24, 'bold'),
+            fg='#000080',
+            bg='#f0f0f0'
         )
-        title.pack(pady=20)
+        title.pack(pady=(10, 5))
         
         # Instructions
         instruction = tk.Label(
             self.main_frame,
             text=CONSENT_INSTRUCTION,
-            font=('Arial', 16),
-            fg='black',
-            bg='white',
-            wraplength=800,
+            font=('Arial', 14),
+            fg='#333333',
+            bg='#f0f0f0',
+            wraplength=self.screen_width - 100,
             justify='center'
         )
-        instruction.pack(pady=10)
+        instruction.pack(pady=(0, 10))
         
         # Create scrollable frame for PDF content
         self.setup_pdf_display()
@@ -377,27 +377,31 @@ class MolyApp:
         agreement_text = tk.Label(
             self.main_frame,
             text=CONSENT_AGREEMENT_TEXT,
-            font=('Arial', 14, 'bold'),
-            fg='red',
-            bg='white',
-            wraplength=600,
+            font=('Arial', 12, 'bold'),
+            fg='#8B0000',
+            bg='#f0f0f0',
+            wraplength=self.screen_width - 200,
             justify='center'
         )
-        agreement_text.pack(pady=(20, 10))
+        agreement_text.pack(pady=(15, 10))
         
         # Consent button (initially disabled if scroll required)
         self.consent_button = tk.Button(
             self.main_frame,
             text=CONSENT_BUTTON_TEXT,
-            font=('Arial', 16, 'bold'),
+            font=('Arial', 14, 'bold'),
             fg='white',
-            bg='green' if not CONSENT_SCROLL_REQUIRED else 'gray',
+            bg='#DC143C' if not CONSENT_SCROLL_REQUIRED else '#CCCCCC',
+            activebackground='#B22222' if not CONSENT_SCROLL_REQUIRED else '#CCCCCC',
+            disabledforeground='#666666',
             state='normal' if not CONSENT_SCROLL_REQUIRED else 'disabled',
-            width=25,
+            width=30,
             height=2,
+            relief='raised',
+            borderwidth=2,
             command=self.on_consent_given
         )
-        self.consent_button.pack(pady=20)
+        self.consent_button.pack(pady=15)
         
         # Focus management
         if FOCUS_MODE:
@@ -408,38 +412,20 @@ class MolyApp:
     
     def setup_pdf_display(self):
         """Set up the PDF display area with scrolling."""
-        # Create frame for PDF content
-        pdf_frame = tk.Frame(self.main_frame, bg='white', relief='sunken', borderwidth=2)
-        pdf_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=10)
+        # Create frame for PDF content - make it take most of the screen
+        pdf_frame = tk.Frame(self.main_frame, bg='#ffffff', relief='sunken', borderwidth=2)
+        pdf_frame.pack(fill=tk.BOTH, expand=True, padx=30, pady=(5, 15))
         
-        # Create canvas and scrollbar for scrolling
-        canvas = tk.Canvas(pdf_frame, bg='white', highlightthickness=0)
-        scrollbar = tk.Scrollbar(pdf_frame, orient="vertical", command=canvas.yview)
-        scrollable_frame = tk.Frame(canvas, bg='white')
+        # Configure the frame to expand properly and set a fixed height
+        pdf_frame.pack_propagate(False)
+        pdf_frame.configure(height=max(400, self.screen_height - 350))
         
-        # Configure scrolling
-        scrollable_frame.bind(
-            "<Configure>",
-            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
-        )
-        
-        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
-        canvas.configure(yscrollcommand=scrollbar.set)
-        
-        # Load and display PDF content
-        self.load_pdf_content(scrollable_frame)
-        
-        # Pack canvas and scrollbar
-        canvas.pack(side="left", fill="both", expand=True)
-        scrollbar.pack(side="right", fill="y")
+        # Load and display PDF content directly in the frame
+        self.load_pdf_content(pdf_frame)
         
         # Set up scroll detection if required
         if CONSENT_SCROLL_REQUIRED:
             self.setup_scroll_detection()
-        
-        # Store references
-        self.pdf_canvas = canvas
-        self.pdf_scrollbar = scrollbar
     
     def load_pdf_content(self, parent_frame):
         """Load and display PDF content."""
@@ -447,18 +433,32 @@ class MolyApp:
             # Try to load PDF content
             pdf_content = self.read_pdf_file(CONSENT_PDF_PATH)
             
-            # Display content in a text widget
+            # Create scrollbar first
+            scrollbar = tk.Scrollbar(parent_frame, orient="vertical", width=20)
+            scrollbar.pack(side="right", fill="y")
+            
+            # Display content in a text widget with scrollbar
             text_widget = tk.Text(
                 parent_frame,
                 wrap=tk.WORD,
-                font=('Arial', 11),
-                bg='white',
-                fg='black',
+                font=('Arial', 14),
+                bg='#ffffff',
+                fg='#000000',
                 relief='flat',
                 state='normal',
-                height=25
+                selectbackground='#b3d9ff',
+                selectforeground='#000000',
+                padx=15,
+                pady=15,
+                spacing1=3,
+                spacing2=2,
+                spacing3=3,
+                yscrollcommand=scrollbar.set
             )
-            text_widget.pack(fill='both', expand=True, padx=10, pady=10)
+            text_widget.pack(side="left", fill='both', expand=True, padx=15, pady=15)
+            
+            # Configure scrollbar
+            scrollbar.config(command=text_widget.yview)
             
             # Insert content
             text_widget.insert('1.0', pdf_content)
@@ -473,13 +473,13 @@ class MolyApp:
             error_label = tk.Label(
                 parent_frame,
                 text=f"Error loading PDF: {e}\n\nPlease check that {CONSENT_PDF_PATH} exists.",
-                font=('Arial', 12),
-                fg='red',
-                bg='white',
-                wraplength=600,
+                font=('Arial', 20),
+                fg='#cc0000',
+                bg='#ffffff',
+                wraplength=self.screen_width - 200,
                 justify='center'
             )
-            error_label.pack(pady=50)
+            error_label.pack(pady=50, padx=20, fill='x')
     
     def read_pdf_file(self, pdf_path):
         """Read PDF file content and return as text."""
@@ -523,22 +523,33 @@ class MolyApp:
     
     def setup_scroll_detection(self):
         """Set up scroll detection to enable consent button when user scrolls to bottom."""
+        self.consent_enabled = False  # Flag to track if consent has been enabled
+        
         def on_scroll(*args):
             # Get scroll position from text widget
-            if hasattr(self, 'pdf_text_widget'):
+            if hasattr(self, 'pdf_text_widget') and not self.consent_enabled:
                 # Get the view of the text widget
                 top, bottom = self.pdf_text_widget.yview()
                 
-                # Enable button when scrolled near the bottom (95% or more)
-                if bottom >= 0.95:
-                    self.consent_button.config(state='normal', bg='green')
+                # Enable button when scrolled near the bottom (90% or more)
+                if bottom >= 0.90:
+                    self.consent_enabled = True
+                    self.consent_button.config(
+                        state='normal', 
+                        bg='#DC143C',
+                        activebackground='#B22222',
+                        fg='white'
+                    )
+                    # Force immediate visual update
+                    self.consent_button.update_idletasks()
                     print("📋 User scrolled to bottom - consent button enabled")
                     self.logging_manager.log_action("CONSENT_SCROLL_COMPLETE", "User scrolled to bottom of consent document", self.current_screen)
         
         # Set up periodic check for scroll position
         def check_scroll():
-            on_scroll()
-            self.root.after(100, check_scroll)  # Check every 100ms
+            if not self.consent_enabled:
+                on_scroll()
+                self.root.after(100, check_scroll)  # Check every 100ms
         
         # Start checking
         self.root.after(500, check_scroll)  # Start after 500ms delay

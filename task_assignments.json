@@ -13,6 +13,12 @@
     "TEST002": "diary",
     "TEST003": "mindfulness",
     "TEST004": "mandala",
-    "TESTAPP001": "diary"
+    "TESTAPP001": "diary",
+    "PDF02": "mindfulness",
+    "PDF04": "mandala",
+    "PDF56": "diary",
+    "PDF07": "mindfulness",
+    "PDF": "mandala",
+    "DU04": "diary"
   }
 }

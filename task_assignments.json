@@ -4,10 +4,15 @@
     "diary",
     "mindfulness"
   ],
-  "last_assigned_index": 2,
+  "last_assigned_index": 1,
   "assignments": {
     "FCI20": "mandala",
     "JOF": "diary",
-    "MA39": "mindfulness"
+    "MA39": "mindfulness",
+    "TEST001": "mandala",
+    "TEST002": "diary",
+    "TEST003": "mindfulness",
+    "TEST004": "mandala",
+    "TESTAPP001": "diary"
   }
 }

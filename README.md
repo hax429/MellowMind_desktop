@@ -50,7 +50,9 @@ chmod +x start_mellowmind.sh
 python src/app.py
 
 # Option 3: Using app bundle (macOS)
+chmod +x MellowMind.app
 open MellowMind.app
+
 ```
 
 ### 3. First Run Setup

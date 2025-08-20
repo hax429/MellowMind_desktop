@@ -22,8 +22,8 @@ import shutil
 from datetime import datetime
 
 # Configuration
-ASSIGNMENTS_FILE = "/Users/hax429/Developer/Internship/moly/task_assignments.json"
-BACKUP_DIR = "/Users/hax429/Developer/Internship/moly/backups"
+ASSIGNMENTS_FILE = "/Users/hax429/Developer/Internship/MellowMind_desktop/task_assignments.json"
+BACKUP_DIR = "/Users/hax429/Developer/Internship/MellowMind_desktop/archive"
 
 def create_backup(assignments_file, backup_dir):
     """Create a timestamped backup of the current assignments file."""

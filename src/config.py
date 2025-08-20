@@ -201,6 +201,10 @@ CONSENT_BUTTON_TEXT = "I CONSENT TO PARTICIPATE"
 CONSENT_AGREEMENT_TEXT = "By clicking this button, you voluntarily agree to participate in our study."
 CONSENT_SCROLL_REQUIRED = True  # Whether user must scroll to bottom to enable button
 
+# CONSENT SCREEN FONT SETTINGS
+CONSENT_BODY_TEXT_SIZE = 20  # Font size for regular consent text content
+CONSENT_SUBTITLE_SIZE = 28   # Font size for subtitles (Study Overview, Devices and Setup, etc.)
+
 # SURVEY URLS AND WEBPAGE SCREEN SETTINGS
 SURVEY_URLS = {
     'prestudy': 'https://mit.co1.qualtrics.com/jfe/form/SV_dnwU04eKIrvIclg',

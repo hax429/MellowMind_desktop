@@ -20,7 +20,14 @@ class CountdownGUI(QMainWindow):
         self.setup_display()
         
     def setup_sound_path(self):
+        # First try the local res directory
         self.beep_path = os.path.join(os.path.dirname(__file__), 'res', 'beep.m4a')
+        if not os.path.exists(self.beep_path):
+            # Try the project root res directory
+            project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+            print(project_root)
+            self.beep_path = os.path.join(project_root, 'res', 'beep.m4a')
+            
         if not os.path.exists(self.beep_path):
             print(f"Warning: Could not find beep.m4a at {self.beep_path}")
             self.beep_path = None

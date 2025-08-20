@@ -37,7 +37,8 @@ class ConsentScreen(BaseScreen):
         
         try:
             from config import (CONSENT_TITLE, CONSENT_INSTRUCTION, CONSENT_AGREEMENT_TEXT, 
-                              CONSENT_BUTTON_TEXT, CONSENT_SCROLL_REQUIRED)
+                              CONSENT_BUTTON_TEXT, CONSENT_SCROLL_REQUIRED, 
+                              CONSENT_BODY_TEXT_SIZE, CONSENT_SUBTITLE_SIZE)
         except ImportError:
             # Fallback values if config not available
             CONSENT_TITLE = "Research Consent Form"
@@ -45,6 +46,8 @@ class ConsentScreen(BaseScreen):
             CONSENT_AGREEMENT_TEXT = "By clicking the button below, you agree to participate in this research study."
             CONSENT_BUTTON_TEXT = "I AGREE TO PARTICIPATE"
             CONSENT_SCROLL_REQUIRED = False
+            CONSENT_BODY_TEXT_SIZE = 16
+            CONSENT_SUBTITLE_SIZE = 20
         
         try:
             from config import COLORS
@@ -437,27 +440,35 @@ You will complete several questionnaires at different points in the session. The
     
     def create_text_section(self, text_content):
         """Create a label for a section of content with no borders."""
-        # Bold and enlarge the specified subtitles
+        # Get font sizes from config
+        try:
+            from config import CONSENT_BODY_TEXT_SIZE, CONSENT_SUBTITLE_SIZE
+        except ImportError:
+            CONSENT_BODY_TEXT_SIZE = 16
+            CONSENT_SUBTITLE_SIZE = 20
+            
+        # Bold and enlarge the specified subtitles using config size
         formatted_text = text_content
-        formatted_text = formatted_text.replace("Study Overview", "<b><font size='5'>Study Overview</font></b>")
-        formatted_text = formatted_text.replace("Devices and Setup", "<b><font size='5'>Devices and Setup</font></b>")
-        formatted_text = formatted_text.replace("Session Outline", "<b><font size='5'>Session Outline</font></b>")
-        formatted_text = formatted_text.replace("Questionnaires", "<b><font size='5'>Questionnaires</font></b>")
+        subtitle_size_html = str(CONSENT_SUBTITLE_SIZE)
+        formatted_text = formatted_text.replace("Study Overview", f"<b><span style='font-size: {subtitle_size_html}px'>Study Overview</span></b>")
+        formatted_text = formatted_text.replace("Devices and Setup", f"<b><span style='font-size: {subtitle_size_html}px'>Devices and Setup</span></b>")
+        formatted_text = formatted_text.replace("Session Outline", f"<b><span style='font-size: {subtitle_size_html}px'>Session Outline</span></b>")
+        formatted_text = formatted_text.replace("Questionnaires", f"<b><span style='font-size: {subtitle_size_html}px'>Questionnaires</span></b>")
         
         # Replace newlines with HTML line breaks for proper formatting
         formatted_text = formatted_text.replace('\n', '<br>')
         
         text_label = QLabel()
-        text_label.setFont(QFont('Arial', 16, QFont.Weight.Normal))
-        text_label.setStyleSheet("""
-            QLabel {
+        text_label.setFont(QFont('Arial', CONSENT_BODY_TEXT_SIZE, QFont.Weight.Normal))
+        text_label.setStyleSheet(f"""
+            QLabel {{
                 background-color: transparent;
                 color: black;
                 border: none;
                 padding: 10px;
                 line-height: 1.6;
-                font-size: 16px;
-            }
+                font-size: {CONSENT_BODY_TEXT_SIZE}px;
+            }}
         """)
         text_label.setText(formatted_text)
         text_label.setWordWrap(True)

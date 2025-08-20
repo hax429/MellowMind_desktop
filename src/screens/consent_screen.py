@@ -153,7 +153,7 @@ class ConsentScreen(BaseScreen):
         
         # Calculate responsive frame height
         content_frame_height = max(400, min(700, int(screen_height * 0.6)))
-            
+        
         # Create frame for all content - responsive sizing
         content_frame = QFrame()
         content_frame.setFrameStyle(QFrame.Shape.Box)
@@ -175,23 +175,21 @@ class ConsentScreen(BaseScreen):
         scroll_area.setStyleSheet("""
             QScrollArea {
                 background-color: white;
-                border: 2px solid #555555;
+                border: none;
                 border-radius: 5px;
             }
         """)
         
         # Create widget to hold all content
         content_widget = QFrame()
+        content_widget.setStyleSheet("QFrame { background-color: white; border: none; }")
         content_widget_layout = QVBoxLayout(content_widget)
         content_widget_layout.setSpacing(20)
         content_widget_layout.setContentsMargins(20, 20, 20, 20)
-        content_widget_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        content_widget_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         
-        # Add images first
-        self.add_images_to_layout(content_widget_layout, screen_width)
-        
-        # Add PDF content
-        self.add_pdf_to_layout(content_widget_layout)
+        # Add structured content with images interspersed
+        self.add_structured_content_to_layout(content_widget_layout, screen_width)
         
         # Set up scroll area
         scroll_area.setWidget(content_widget)
@@ -209,7 +207,7 @@ class ConsentScreen(BaseScreen):
             # Image paths
             image_paths = [
                 'res/image1.jpg',
-                'res/imag2.jpg.png'  # This is actually the second image
+                'res/image2.jpg'
             ]
             
             for i, image_path in enumerate(image_paths):
@@ -264,34 +262,259 @@ class ConsentScreen(BaseScreen):
             layout.addWidget(error_label)
     
     def add_pdf_to_layout(self, layout):
-        """Add PDF content to the layout."""
+        """Add consent text content to the layout."""
         try:
-            from config import CONSENT_PDF_PATH, COLORS
+            from config import COLORS
         except ImportError:
-            CONSENT_PDF_PATH = "res/brief.pdf"
             COLORS = {'pdf_background': '#2a2a2a', 'pdf_text': '#ffffff'}
         
-        # Add PDF title
-        pdf_title = QLabel("Research Brief (PDF)")
-        pdf_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        pdf_title.setStyleSheet("font-size: 16px; font-weight: bold; color: #333; margin: 10px;")
-        layout.addWidget(pdf_title)
+        # Create text widget for consent content
+        consent_text_widget = QTextEdit()
+        consent_text_widget.setFont(QFont('Arial', 12, QFont.Weight.Normal))
+        consent_text_widget.setStyleSheet(f"""
+            QTextEdit {{
+                background-color: white;
+                color: black;
+                border: 2px solid #555555;
+                border-radius: 5px;
+                padding: 20px;
+                line-height: 1.6;
+                font-size: 12px;
+                max-height: 600px;
+            }}
+        """)
         
-        # Get absolute path to PDF
-        abs_pdf_path = os.path.abspath(CONSENT_PDF_PATH)
+        # Set the new consent text content
+        consent_content = """Thank you for participating in our study. This document provides an overview of the session you will take part in, including the tests, cognitive tasks, and questionnaires you will complete. Please read through carefully so you know what to expect.
+
+Study Overview
+This study investigates emotional and physiological responses during different activities, including stress tasks and relaxation activities, using wearable devices and smartphone-based interventions. Each session lasts approximately 90 minutes and will be conducted on weekdays only.
+
+Devices and Setup
+During the session, you will wear two EmbracePlus devices (on your dominant and non-dominant wrists) and one Galaxy Watch (on your non-dominant wrist). We will confirm your handedness using the Edinburgh Handedness Inventory. These devices will measure physiological signals throughout the session.
+
+Session Outline
+●    0–5 min – Welcome, consent reconfirmation, and fitting of wearable devices.
+
+●    5–12 min – Pre-study survey (including SAM, VAS, GAD-7, PHQ-8, and handedness inventory).
+
+●    12–15 min – During study survey (Pre-stress block only: STAI-Y1)
+
+●    15-19 min – Relaxation activity and baseline physiological recording.
+
+●    19–39 min – Stress tasks: 
+
+1. Descriptive Writing (~5 min)
+
+You will be asked to write continuously for a few minutes about a specific prompt (for example, a personal experience or reaction to an image). Please keep writing without stopping until the time is up. There are no right or wrong answers; the goal is simply to express your thoughts.
+
+2. Stroop test (~7-8 min)
+
+You will see words that name colors, but the ink color may not match the word (for example, the word RED shown in blue ink). Your task is to say the color of the ink as quickly and accurately as you can, ignoring the word itself.
+
+3. Mental Arithmetic (~7-8 min)
+
+You will start from the number 4000 and count backwards in steps of 7 (for example: 4000, 3993, 3986, …). Continue out loud, as quickly and accurately as possible, until the researcher asks you to stop.
+
+●    39–59 min – Smartphone activity (randomly assigned)
+
+●    59–64 min – Rest period and recovery recording.      
+
+●    64–72 min – During Study questionnaires: Post-cognitive task block (STAI-Y1, VAS).
+
+●    72–85 min – Post-session survey (BFNE, SAM, WEMWBS, feedback).
+
+●    85–90 min – Debriefing and compensation.
+
+Questionnaires
+You will complete several questionnaires at different points in the session. These ask about your feelings, mood, and experiences.
+★    SAM (Self-Assessment Manikin): A quick picture-based scale to show how you feel right now.
+
+★    VAS (Visual Analogue Scale): A simple line scale where you mark how strongly you feel something.
+
+★    GAD-7 (Generalized Anxiety Disorder Scale): A short set of questions about common anxiety symptoms.
+
+★    PHQ-8 (Patient Health Questionnaire): Questions about your mood and well-being over the past two weeks.
+
+★    STAI-Y1 (State-Trait Anxiety Inventory): A questionnaire that measures your current level of anxiety.
+
+★    BFNE (Brief Fear of Negative Evaluation): Questions about concerns of how others view you.
+
+★    WEMWBS (Warwick-Edinburgh Mental Well-being Scale): A short survey about your overall mental well-being.
+
+★    Rosenberg Self-Esteem Scale (exploratory): Questions about how you see and value yourself.
+
+★    Feedback questions: At the end, you will be asked for feedback about your experience in the study."""
         
-        if os.path.exists(abs_pdf_path):
-            print(f"📄 Loading PDF: {abs_pdf_path}")
-            
-            # Try to load PDF as images
-            success = self.try_pdf_to_images_inline(layout, abs_pdf_path, COLORS)
-            
-            if not success:
-                print("📄 PDF image conversion failed, using text extraction")
-                self.load_pdf_text_inline(layout, abs_pdf_path, COLORS)
-        else:
-            print(f"⚠️ PDF file not found: {abs_pdf_path}")
-            error_label = QLabel(f"⚠️ PDF file not found: {os.path.basename(CONSENT_PDF_PATH)}")
+        consent_text_widget.setPlainText(consent_content)
+        consent_text_widget.setReadOnly(True)
+        
+        layout.addWidget(consent_text_widget)
+        
+        print("📄 Added consent text content")
+    
+    def add_structured_content_to_layout(self, layout, screen_width):
+        """Add structured content with text and images in the correct order."""
+        try:
+            from config import COLORS
+        except ImportError:
+            COLORS = {'pdf_background': '#2a2a2a', 'pdf_text': '#ffffff'}
+        
+        # First section text
+        first_section = self.create_text_section("""Thank you for participating in our study. This document provides an overview of the session you will take part in, including the tests, cognitive tasks, and questionnaires you will complete. Please read through carefully so you know what to expect.
+
+Study Overview
+This study investigates emotional and physiological responses during different activities, including stress tasks and relaxation activities, using wearable devices and smartphone-based interventions. Each session lasts approximately 90 minutes and will be conducted on weekdays only.
+
+Devices and Setup
+During the session, you will wear two EmbracePlus devices (on your dominant and non-dominant wrists) and one Galaxy Watch (on your non-dominant wrist). We will confirm your handedness using the Edinburgh Handedness Inventory. These devices will measure physiological signals throughout the session.""")
+        layout.addWidget(first_section)
+
+        # Add image1.jpg without figure label
+        self.add_single_image(layout, 'res/image1.jpg', screen_width, "")
+
+        # Session outline section
+        session_section = self.create_text_section("""Session Outline
+●    0–5 min – Welcome, consent reconfirmation, and fitting of wearable devices.
+
+●    5–12 min – Pre-study survey (including SAM, VAS, GAD-7, PHQ-8, and handedness inventory).
+
+●    12–15 min – During study survey (Pre-stress block only: STAI-Y1)
+
+●    15-19 min – Relaxation activity and baseline physiological recording.
+
+●    19–39 min – Stress tasks: 
+
+1. Descriptive Writing (~5 min)
+
+You will be asked to write continuously for a few minutes about a specific prompt (for example, a personal experience or reaction to an image). Please keep writing without stopping until the time is up. There are no right or wrong answers; the goal is simply to express your thoughts.
+
+2. Stroop test (~7-8 min)
+
+You will see words that name colors, but the ink color may not match the word (for example, the word RED shown in blue ink). Your task is to say the color of the ink as quickly and accurately as you can, ignoring the word itself.""")
+        layout.addWidget(session_section)
+        
+        # Add image2.jpg without figure label
+        self.add_single_image(layout, 'res/image2.jpg', screen_width, "")
+        
+        # Final section
+        final_section = self.create_text_section("""3. Mental Arithmetic (~7-8 min)
+
+You will start from the number 4000 and count backwards in steps of 7 (for example: 4000, 3993, 3986, …). Continue out loud, as quickly and accurately as possible, until the researcher asks you to stop.
+
+●    39–59 min – Smartphone activity (randomly assigned)
+
+●    59–64 min – Rest period and recovery recording.      
+
+●    64–72 min – During Study questionnaires: Post-cognitive task block (STAI-Y1, VAS).
+
+●    72–85 min – Post-session survey (BFNE, SAM, WEMWBS, feedback).
+
+●    85–90 min – Debriefing and compensation.
+
+Questionnaires
+You will complete several questionnaires at different points in the session. These ask about your feelings, mood, and experiences.
+★    SAM (Self-Assessment Manikin): A quick picture-based scale to show how you feel right now.
+
+★    VAS (Visual Analogue Scale): A simple line scale where you mark how strongly you feel something.
+
+★    GAD-7 (Generalized Anxiety Disorder Scale): A short set of questions about common anxiety symptoms.
+
+★    PHQ-8 (Patient Health Questionnaire): Questions about your mood and well-being over the past two weeks.
+
+★    STAI-Y1 (State-Trait Anxiety Inventory): A questionnaire that measures your current level of anxiety.
+
+★    BFNE (Brief Fear of Negative Evaluation): Questions about concerns of how others view you.
+
+★    WEMWBS (Warwick-Edinburgh Mental Well-being Scale): A short survey about your overall mental well-being.
+
+★    Rosenberg Self-Esteem Scale (exploratory): Questions about how you see and value yourself.
+
+★    Feedback questions: At the end, you will be asked for feedback about your experience in the study.""")
+        layout.addWidget(final_section)
+        
+        print("📄 Added structured consent content with images")
+    
+    def create_text_section(self, text_content):
+        """Create a label for a section of content with no borders."""
+        # Bold and enlarge the specified subtitles
+        formatted_text = text_content
+        formatted_text = formatted_text.replace("Study Overview", "<b><font size='5'>Study Overview</font></b>")
+        formatted_text = formatted_text.replace("Devices and Setup", "<b><font size='5'>Devices and Setup</font></b>")
+        formatted_text = formatted_text.replace("Session Outline", "<b><font size='5'>Session Outline</font></b>")
+        formatted_text = formatted_text.replace("Questionnaires", "<b><font size='5'>Questionnaires</font></b>")
+        
+        # Replace newlines with HTML line breaks for proper formatting
+        formatted_text = formatted_text.replace('\n', '<br>')
+        
+        text_label = QLabel()
+        text_label.setFont(QFont('Arial', 16, QFont.Weight.Normal))
+        text_label.setStyleSheet("""
+            QLabel {
+                background-color: transparent;
+                color: black;
+                border: none;
+                padding: 10px;
+                line-height: 1.6;
+                font-size: 16px;
+            }
+        """)
+        text_label.setText(formatted_text)
+        text_label.setWordWrap(True)
+        text_label.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
+        
+        return text_label
+    
+    def add_single_image(self, layout, image_path, screen_width, title):
+        """Add a single image to the layout."""
+        try:
+            abs_image_path = os.path.abspath(image_path)
+            if os.path.exists(abs_image_path):
+                print(f"📷 Loading image: {abs_image_path}")
+                
+                # Create title for image only if title is not empty
+                if title.strip():
+                    image_title = QLabel(title)
+                    image_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                    image_title.setStyleSheet("font-size: 16px; font-weight: bold; color: #333; margin: 10px;")
+                    layout.addWidget(image_title)
+                
+                # Load and display image
+                pixmap = QPixmap(abs_image_path)
+                if not pixmap.isNull():
+                    # Scale image to fit width while maintaining aspect ratio
+                    max_width = min(600, int(screen_width * 0.6))
+                    if pixmap.width() > max_width:
+                        scaled_pixmap = pixmap.scaledToWidth(max_width, Qt.TransformationMode.SmoothTransformation)
+                    else:
+                        scaled_pixmap = pixmap
+                    
+                    # Create label for image
+                    image_label = QLabel()
+                    image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                    image_label.setPixmap(scaled_pixmap)
+                    image_label.setFixedSize(scaled_pixmap.size())
+                    layout.addWidget(image_label)
+                    
+                    print(f"✅ Added image: {title}")
+                else:
+                    print(f"⚠️ Failed to load image: {abs_image_path}")
+                    # Add error message
+                    error_label = QLabel(f"⚠️ Could not load {title}")
+                    error_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                    error_label.setStyleSheet("color: red; font-size: 14px; margin: 10px;")
+                    layout.addWidget(error_label)
+            else:
+                print(f"⚠️ Image not found: {abs_image_path}")
+                # Add missing file message
+                missing_label = QLabel(f"⚠️ {title} not found: {os.path.basename(image_path)}")
+                missing_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                missing_label.setStyleSheet("color: orange; font-size: 14px; margin: 10px;")
+                layout.addWidget(missing_label)
+        
+        except Exception as e:
+            print(f"⚠️ Error loading image {title}: {e}")
+            error_label = QLabel(f"⚠️ Error loading {title}: {e}")
             error_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             error_label.setStyleSheet("color: red; font-size: 14px; margin: 10px;")
             layout.addWidget(error_label)
@@ -519,22 +742,15 @@ class ConsentScreen(BaseScreen):
                         raise retry_error
             
             if images:
-                # Create scrollable area for images
-                scroll_area = QScrollArea()
-                scroll_area.setWidgetResizable(False)  # Don't resize widget to fit scroll area
-                scroll_area.setAlignment(Qt.AlignmentFlag.AlignCenter)  # Center the content
-                scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
-                scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
-                scroll_area.setStyleSheet("""
-                    QScrollArea {
+                # Create widget to hold all PDF pages directly (no scroll area)
+                pdf_widget = QFrame()
+                pdf_widget.setStyleSheet("""
+                    QFrame {
                         background-color: white;
                         border: 2px solid #555555;
                         border-radius: 5px;
                     }
                 """)
-                
-                # Create widget to hold all PDF pages
-                pdf_widget = QFrame()
                 pdf_layout = QVBoxLayout(pdf_widget)
                 pdf_layout.setSpacing(10)
                 pdf_layout.setContentsMargins(20, 20, 20, 20)
@@ -576,13 +792,12 @@ class ConsentScreen(BaseScreen):
                 from PyQt6.QtWidgets import QSizePolicy
                 pdf_widget.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Minimum)
                 
-                # Set up scroll area
-                scroll_area.setWidget(pdf_widget)
-                parent_layout.addWidget(scroll_area)
-                self.add_widget(scroll_area)
+                # Add PDF widget directly to parent layout (no scroll area)
+                parent_layout.addWidget(pdf_widget)
+                self.add_widget(pdf_widget)
                 
-                # Store reference for scroll detection
-                self.pdf_viewer = scroll_area
+                # Store reference
+                self.pdf_viewer = pdf_widget
                 
                 print(f"✅ PDF loaded successfully as {len(images)} images")
                 self.log_action("PDF_LOADED_SUCCESS", f"PDF loaded as {len(images)} image pages")

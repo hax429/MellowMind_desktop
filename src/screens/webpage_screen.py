@@ -75,7 +75,7 @@ class WebpageScreen(BaseScreen):
             title = self.create_title(
                 self.config['title'],
                 font_size=title_font_size,
-                color='#4285F4'
+                color=self.config.get('title_color', '#4285F4')
             )
             self.layout.addWidget(title)
             self.layout.addStretch(1)
@@ -85,7 +85,16 @@ class WebpageScreen(BaseScreen):
             web_frame = QFrame()
             web_frame.setFrameStyle(QFrame.Shape.Box)
             web_frame.setLineWidth(3)
-            web_frame.setStyleSheet("QFrame { border: 3px solid #4285F4; background-color: white; border-radius: 8px; }")
+            try:
+                from config import COLORS, UI_SETTINGS
+                accent_color = COLORS['webpage_accent']
+                bg_color = COLORS['webpage_bg']
+                border_radius = UI_SETTINGS['border_radius_medium']
+            except ImportError:
+                accent_color = '#4285F4'
+                bg_color = 'white'
+                border_radius = '8px'
+            web_frame.setStyleSheet(f"QFrame {{ border: 3px solid {accent_color}; background-color: {bg_color}; border-radius: {border_radius}; }}")
             web_frame.setMinimumHeight(web_frame_height)
             web_frame.setMaximumHeight(int(screen_height * 0.75))
             
@@ -145,7 +154,7 @@ class WebpageScreen(BaseScreen):
                 font_size=button_font_size,
                 width=button_width,
                 height=button_height,
-                bg_color='#4285F4',
+                # Colors now come from config via base_screen.py
                 fg_color='white'
             )
             

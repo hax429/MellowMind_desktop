@@ -17,18 +17,18 @@ def simulate_crash():
     print("=" * 50)
      
     # Check if we're in the right directory
-    if not os.path.exists("moly_app.py"):
-        print("❌ Error: moly_app.py not found in current directory")
-        print("   Please run this script from the moly project directory")
-        return
+    # if not os.path.exists("moly_app.py"):
+    #     print("❌ Error: moly_app.py not found in current directory")
+    #     print("   Please run this script from the moly project directory")
+    #     return
     
     # Start the Moly application
-    print("🚀 Starting Moly application...")
+    print("🚀 Starting Moly application..k..")
     try:
         # Start the app in the background
         process = subprocess.Popen([
             "/opt/miniconda3/envs/moly/bin/python", 
-            "moly_app.py"
+            "/Users/hax429/Developer/Internship/MellowMind_desktop/src/app.py"
         ], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         
         print(f"📱 App started with PID: {process.pid}")

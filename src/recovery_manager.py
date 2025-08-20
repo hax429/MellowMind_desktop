@@ -107,10 +107,12 @@ class RecoveryManager:
 
     def determine_recovery_state(self, actions, responses, last_screen):
         """Determine what state to recover to based on actions."""
+        print(f"🔍 Determining recovery state for last_screen: {last_screen}")
+        
         # Check if user was in descriptive task
-        if last_screen == "descriptive_task":
+        if last_screen in ["descriptive_task", "descriptivetask"]:
             # Find current prompt index
-            screen_displayed_actions = [a for a in actions if a['action_type'] == 'SCREEN_DISPLAYED' and a['screen'] == 'descriptive_task']
+            screen_displayed_actions = [a for a in actions if a['action_type'] == 'SCREEN_DISPLAYED' and a['screen'] in ['descriptive_task', 'descriptivetask']]
             if screen_displayed_actions:
                 # Count how many prompts were completed
                 current_prompt_index = len(responses)
@@ -119,20 +121,63 @@ class RecoveryManager:
                     'current_prompt_index': current_prompt_index,
                     'completed_responses': responses
                 }
+            else:
+                # If no screen displayed actions, still return descriptive task
+                return {
+                    'screen': 'descriptive_task',
+                    'current_prompt_index': 0,
+                    'completed_responses': responses
+                }
 
-        # Check other screens
+        # Check other task screens
         elif last_screen == "relaxation":
             return {'screen': 'relaxation'}
-        elif last_screen == "stroop":
+        elif last_screen in ["stroop", "nativestroop"]:
             return {'screen': 'stroop'}
-        elif last_screen == "math_task":
+        elif last_screen in ["math_task", "mathtask"]:
             return {'screen': 'math_task'}
-        elif last_screen == "post_study_rest":
+        elif last_screen in ["post_study_rest", "poststudyrest"]:
             return {'screen': 'post_study_rest'}
-        elif last_screen == "participant_id":
+        elif last_screen in ["content_performance", "contentperformance"]:
+            return {'screen': 'content_performance'}
+        
+        # Check if user was in a survey/webpage screen
+        elif last_screen == "webpage":
+            # Determine which survey they were on based on recent actions
+            for action in reversed(actions):
+                if 'PRESTUDY' in action.get('action_type', ''):
+                    return {'screen': 'prestudy'}
+                elif 'DURINGSTUDY1' in action.get('action_type', ''):
+                    return {'screen': 'duringstudy1'}
+                elif 'DURINGSTUDY2' in action.get('action_type', ''):
+                    return {'screen': 'duringstudy2'}
+                elif 'POSTSTUDY' in action.get('action_type', ''):
+                    return {'screen': 'poststudy'}
+            return {'screen': 'prestudy'}  # Default to first survey
+        
+        # Check consent screen
+        elif last_screen == "consent":
+            return {'screen': 'consent'}
+        
+        # Check transition screens - look at what they were transitioning to
+        elif last_screen == "transition":
+            for action in reversed(actions):
+                if action.get('action_type') == 'TRANSITION_SCREEN_DISPLAYED':
+                    details = action.get('details', '')
+                    if 'descriptive' in details.lower():
+                        return {'screen': 'descriptive_transition'}
+                    elif 'stroop' in details.lower():
+                        return {'screen': 'stroop_transition'}
+                    elif 'math' in details.lower():
+                        return {'screen': 'math_transition'}
+            return {'screen': 'descriptive_transition'}  # Default transition
+        
+        # Participant ID screen
+        elif last_screen in ["participant_id", "participantid"]:
             return {'screen': 'participant_id'}
 
         # Default to beginning if unsure
+        print(f"⚠️ Unknown screen type: {last_screen}, defaulting to participant_id")
         return {'screen': 'participant_id'}
 
     def setup_recovery_session(self, recovery_data, session_start_time_callback):

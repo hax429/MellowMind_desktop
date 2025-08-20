@@ -99,8 +99,7 @@ class ParticipantIDScreen(BaseScreen):
             font_size=button_font_size,
             width=button_width,
             height=button_height,
-            bg_color='#4CAF50',  # More prominent green
-            fg_color='white'
+            # Colors now come from config via base_screen.py
         )
         
         # Center the button

@@ -142,14 +142,33 @@ class BaseScreen(QWidget, ABC, metaclass=CombinedMeta):
         instruction.setStyleSheet(f"color: {color}; background-color: transparent;")
         return self.add_widget(instruction)
     
-    def create_button(self, text, command, font_size=16, width=150, height=50, bg_color='lightgreen', fg_color='black'):
+    def create_button(self, text, command, font_size=16, width=150, height=50, bg_color=None, fg_color=None):
         """Create a standard button."""
+        # Import config colors with fallbacks
+        try:
+            from config import COLORS, UI_SETTINGS
+            default_bg = COLORS['button_bg']
+            default_fg = COLORS['button_text']
+            border_color = COLORS['button_border']
+            border_radius = UI_SETTINGS['border_radius_small']
+            font_family = UI_SETTINGS['font_family']
+        except ImportError:
+            default_bg = '#4CAF50'
+            default_fg = 'white'
+            border_color = 'gray'
+            border_radius = '5px'
+            font_family = 'Arial'
+        
+        # Use provided colors or defaults from config
+        bg_color = bg_color or default_bg
+        fg_color = fg_color or default_fg
+        
         button = QPushButton(text)
-        font = QFont('Arial', font_size)
+        font = QFont(font_family, font_size)
         font.setBold(True)
         button.setFont(font)
         button.setFixedSize(width, height)
-        button.setStyleSheet(f"background-color: {bg_color}; color: {fg_color}; border: 2px solid gray; border-radius: 5px;")
+        button.setStyleSheet(f"background-color: {bg_color}; color: {fg_color}; border: 2px solid {border_color}; border-radius: {border_radius};")
         button.clicked.connect(command)
         return self.add_widget(button)
     

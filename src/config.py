@@ -204,8 +204,8 @@ CONSENT_SCROLL_REQUIRED = True  # Whether user must scroll to bottom to enable b
 # SURVEY URLS AND WEBPAGE SCREEN SETTINGS
 SURVEY_URLS = {
     'prestudy': 'https://mit.co1.qualtrics.com/jfe/form/SV_dnwU04eKIrvIclg',
-    'duringstudy1': 'https://placeholder.url.for.duringstudy1',  # To be updated with actual URL
-    'duringstudy2': 'https://placeholder.url.for.duringstudy2',  # To be updated with actual URL
+    'duringstudy1': 'https://mit.co1.qualtrics.com/jfe/form/SV_9LVfHpGZa0PwYCO',  # To be updated with actual URL
+    'duringstudy2': 'https://mit.co1.qualtrics.com/jfe/form/SV_9LVfHpGZa0PwYCO',  # To be updated with actual URL
     'poststudy': 'https://mit.co1.qualtrics.com/jfe/form/SV_0HVcg0Fzo8s7Kbs'
 }
 

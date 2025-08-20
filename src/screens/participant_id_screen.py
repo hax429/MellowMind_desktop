@@ -139,22 +139,22 @@ class ParticipantIDScreen(BaseScreen):
                     from config import CONSENT_ENABLED
                     print(f"🔍 CONSENT_ENABLED: {CONSENT_ENABLED}")
                     if CONSENT_ENABLED:
-                        print("🔍 Navigating to webpage screen")
+                        print("🔍 Navigating to consent screen")
                         
                         # Debug print available screens
                         if hasattr(self.app, 'screens'):
                             print(f"🔍 Available screens: {list(self.app.screens.keys())}")
                         
-                        # Use the MolyApp's proper navigation - switch to prestudy survey
-                        if hasattr(self.app, 'prestudy_screen'):
-                            print("🔍 Using app.prestudy_screen")
-                            self.app.switch_to_screen(self.app.prestudy_screen)
-                        elif hasattr(self.app, 'switch_to_prestudy_survey'):
-                            print("🔍 Using switch_to_prestudy_survey method")
-                            self.app.switch_to_prestudy_survey()
+                        # Use the MolyApp's proper navigation - switch to consent screen
+                        if hasattr(self.app, 'consent_screen'):
+                            print("🔍 Using app.consent_screen")
+                            self.app.switch_to_screen(self.app.consent_screen)
+                        elif hasattr(self.app, 'switch_to_consent'):
+                            print("🔍 Using switch_to_consent method")
+                            self.app.switch_to_consent()
                         else:
-                            print("⚠️ No prestudy survey available - this should not happen")
-                            raise RuntimeError("Prestudy survey screen not available")
+                            print("⚠️ No consent screen available - this should not happen")
+                            raise RuntimeError("Consent screen not available")
                     else:
                         print("🔍 Consent disabled, switching to relaxation")
                         if hasattr(self.app, 'relaxation_screen'):
@@ -164,11 +164,11 @@ class ParticipantIDScreen(BaseScreen):
                             self.app.switch_to_relaxation()
                 except ImportError as e:
                     print(f"🔍 ImportError: {e}")
-                    # Config not available, use prestudy survey as default
-                    if hasattr(self.app, 'switch_to_prestudy_survey'):
-                        self.app.switch_to_prestudy_survey()
+                    # Config not available, use consent screen as default
+                    if hasattr(self.app, 'switch_to_consent'):
+                        self.app.switch_to_consent()
                     else:
-                        raise RuntimeError("Prestudy survey not available and no fallback")
+                        raise RuntimeError("Consent screen not available and no fallback")
                 except Exception as e:
                     print(f"⚠️ Error during screen transition: {e}")
                     import traceback

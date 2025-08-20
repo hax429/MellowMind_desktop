@@ -791,13 +791,16 @@ class ConsentScreen(BaseScreen):
     
     def on_consent_given(self):
         """Handle when user gives consent."""
-        print("✅ User gave consent - proceeding to relaxation")
+        print("✅ User gave consent - proceeding to prestudy survey")
         self.log_action("CONSENT_GIVEN", "User clicked consent button")
         
-        if hasattr(self.app, 'relaxation_screen'):
-            print("🔍 Using app.relaxation_screen for navigation")
-            self.app.switch_to_screen(self.app.relaxation_screen)
-        else:
-            print("🔍 Using switch_to_relaxation() method")
+        if hasattr(self.app, 'prestudy_screen'):
+            print("🔍 Using app.prestudy_screen for navigation")
+            self.app.switch_to_screen(self.app.prestudy_screen)
+        elif hasattr(self.app, 'switch_to_prestudy_survey'):
+            print("🔍 Using switch_to_prestudy_survey() method")
             # Fallback to direct method call
-            self.app.switch_to_relaxation()
+            self.app.switch_to_prestudy_survey()
+        else:
+            print("⚠️ No prestudy survey screen available - this should not happen")
+            raise RuntimeError("Prestudy survey screen not available")

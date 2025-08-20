@@ -222,8 +222,8 @@ SURVEY_CONFIGS = {
     # Primary survey configurations
     'prestudy': {
         'title': 'Prestudy Survey',
-        'button_text': 'CONTINUE TO CONSENT FORM',
-        'callback': 'switch_to_consent',
+        'button_text': 'CONTINUE TO RELAXATION',
+        'callback': 'switch_to_relaxation',
         'height': 900
     },
     'duringstudy1': {

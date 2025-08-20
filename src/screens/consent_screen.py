@@ -74,8 +74,8 @@ class ConsentScreen(BaseScreen):
         self.layout.addWidget(instruction)
         self.layout.addStretch(1)
         
-        # Create scrollable frame for PDF content - responsive
-        self.setup_pdf_display()
+        # Create scrollable frame for PDF and image content - responsive
+        self.setup_content_display()
         
         # Agreement text with bright visible color - responsive font
         agreement_text = self.create_instruction(
@@ -140,6 +140,247 @@ class ConsentScreen(BaseScreen):
         # Log screen display
         self.log_action("CONSENT_SCREEN_DISPLAYED", "Consent form displayed to user")
     
+    def setup_content_display(self):
+        """Set up content display area with PDF and images."""
+        try:
+            from config import COLORS
+        except ImportError:
+            COLORS = {'pdf_background': '#2a2a2a', 'pdf_text': '#ffffff'}
+        
+        # Get screen dimensions for responsive sizing
+        screen_width = self.app.screen_width if hasattr(self.app, 'screen_width') else 1920
+        screen_height = self.app.screen_height if hasattr(self.app, 'screen_height') else 1080
+        
+        # Calculate responsive frame height
+        content_frame_height = max(400, min(700, int(screen_height * 0.6)))
+            
+        # Create frame for all content - responsive sizing
+        content_frame = QFrame()
+        content_frame.setFrameStyle(QFrame.Shape.Box)
+        content_frame.setLineWidth(3)
+        content_frame.setStyleSheet(f"QFrame {{ border: 3px solid #444444; background-color: {COLORS['pdf_background']}; border-radius: 8px; }}")
+        content_frame.setMinimumHeight(content_frame_height)
+        content_frame.setMaximumHeight(int(screen_height * 0.65))
+        
+        # Layout for content frame
+        content_layout = QVBoxLayout(content_frame)
+        content_layout.setContentsMargins(10, 10, 10, 10)
+        
+        # Create scrollable area for all content
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        scroll_area.setStyleSheet("""
+            QScrollArea {
+                background-color: white;
+                border: 2px solid #555555;
+                border-radius: 5px;
+            }
+        """)
+        
+        # Create widget to hold all content
+        content_widget = QFrame()
+        content_widget_layout = QVBoxLayout(content_widget)
+        content_widget_layout.setSpacing(20)
+        content_widget_layout.setContentsMargins(20, 20, 20, 20)
+        content_widget_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        
+        # Add images first
+        self.add_images_to_layout(content_widget_layout, screen_width)
+        
+        # Add PDF content
+        self.add_pdf_to_layout(content_widget_layout)
+        
+        # Set up scroll area
+        scroll_area.setWidget(content_widget)
+        content_layout.addWidget(scroll_area)
+        
+        self.layout.addWidget(content_frame)
+        self.add_widget(content_frame)
+        
+        # Store reference for scroll detection
+        self.pdf_viewer = scroll_area
+    
+    def add_images_to_layout(self, layout, screen_width):
+        """Add image1.jpg and image2.jpg to the layout."""
+        try:
+            # Image paths
+            image_paths = [
+                'res/image1.jpg',
+                'res/imag2.jpg.png'  # This is actually the second image
+            ]
+            
+            for i, image_path in enumerate(image_paths):
+                abs_image_path = os.path.abspath(image_path)
+                if os.path.exists(abs_image_path):
+                    print(f"📷 Loading image {i+1}: {abs_image_path}")
+                    
+                    # Create title for image
+                    image_title = QLabel(f"Figure {i+1}")
+                    image_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                    image_title.setStyleSheet("font-size: 16px; font-weight: bold; color: #333; margin: 10px;")
+                    layout.addWidget(image_title)
+                    
+                    # Load and display image
+                    pixmap = QPixmap(abs_image_path)
+                    if not pixmap.isNull():
+                        # Scale image to fit width while maintaining aspect ratio
+                        max_width = min(600, int(screen_width * 0.6))
+                        if pixmap.width() > max_width:
+                            scaled_pixmap = pixmap.scaledToWidth(max_width, Qt.TransformationMode.SmoothTransformation)
+                        else:
+                            scaled_pixmap = pixmap
+                        
+                        # Create label for image
+                        image_label = QLabel()
+                        image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                        image_label.setPixmap(scaled_pixmap)
+                        image_label.setFixedSize(scaled_pixmap.size())
+                        layout.addWidget(image_label)
+                        
+                        print(f"✅ Added image {i+1}: {scaled_pixmap.size()}")
+                    else:
+                        print(f"⚠️ Failed to load image {i+1}: {abs_image_path}")
+                        # Add error message
+                        error_label = QLabel(f"⚠️ Could not load image {i+1}")
+                        error_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                        error_label.setStyleSheet("color: red; font-size: 14px; margin: 10px;")
+                        layout.addWidget(error_label)
+                else:
+                    print(f"⚠️ Image {i+1} not found: {abs_image_path}")
+                    # Add missing file message
+                    missing_label = QLabel(f"⚠️ Image {i+1} not found: {os.path.basename(image_path)}")
+                    missing_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                    missing_label.setStyleSheet("color: orange; font-size: 14px; margin: 10px;")
+                    layout.addWidget(missing_label)
+        
+        except Exception as e:
+            print(f"⚠️ Error loading images: {e}")
+            error_label = QLabel(f"⚠️ Error loading images: {e}")
+            error_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            error_label.setStyleSheet("color: red; font-size: 14px; margin: 10px;")
+            layout.addWidget(error_label)
+    
+    def add_pdf_to_layout(self, layout):
+        """Add PDF content to the layout."""
+        try:
+            from config import CONSENT_PDF_PATH, COLORS
+        except ImportError:
+            CONSENT_PDF_PATH = "res/brief.pdf"
+            COLORS = {'pdf_background': '#2a2a2a', 'pdf_text': '#ffffff'}
+        
+        # Add PDF title
+        pdf_title = QLabel("Research Brief (PDF)")
+        pdf_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        pdf_title.setStyleSheet("font-size: 16px; font-weight: bold; color: #333; margin: 10px;")
+        layout.addWidget(pdf_title)
+        
+        # Get absolute path to PDF
+        abs_pdf_path = os.path.abspath(CONSENT_PDF_PATH)
+        
+        if os.path.exists(abs_pdf_path):
+            print(f"📄 Loading PDF: {abs_pdf_path}")
+            
+            # Try to load PDF as images
+            success = self.try_pdf_to_images_inline(layout, abs_pdf_path, COLORS)
+            
+            if not success:
+                print("📄 PDF image conversion failed, using text extraction")
+                self.load_pdf_text_inline(layout, abs_pdf_path, COLORS)
+        else:
+            print(f"⚠️ PDF file not found: {abs_pdf_path}")
+            error_label = QLabel(f"⚠️ PDF file not found: {os.path.basename(CONSENT_PDF_PATH)}")
+            error_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            error_label.setStyleSheet("color: red; font-size: 14px; margin: 10px;")
+            layout.addWidget(error_label)
+    
+    def try_pdf_to_images_inline(self, layout, pdf_path, colors):
+        """Try to convert PDF to images and add them inline to the layout."""
+        try:
+            from pdf2image import convert_from_path
+            
+            print(f"📄 Converting PDF to images for inline display: {pdf_path}")
+            
+            # Convert PDF pages to images
+            images = convert_from_path(pdf_path, dpi=150, poppler_path=self._get_poppler_path())
+            
+            if images:
+                # Add each page as an image
+                for i, image in enumerate(images):
+                    # Convert PIL image to QPixmap
+                    page_pixmap = self.pil_to_qpixmap(image)
+                    
+                    if page_pixmap:
+                        # Scale to fit width while maintaining aspect ratio
+                        screen_width = self.app.screen_width if hasattr(self.app, 'screen_width') else 1920
+                        max_width = min(800, int(screen_width * 0.7))
+                        
+                        if page_pixmap.width() > max_width:
+                            scaled_pixmap = page_pixmap.scaledToWidth(max_width, Qt.TransformationMode.SmoothTransformation)
+                        else:
+                            scaled_pixmap = page_pixmap
+                        
+                        # Create label for this page
+                        page_label = QLabel()
+                        page_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                        page_label.setPixmap(scaled_pixmap)
+                        page_label.setFixedSize(scaled_pixmap.size())
+                        
+                        layout.addWidget(page_label)
+                        print(f"📄 Added PDF page {i+1} as image")
+                
+                print(f"✅ PDF loaded successfully as {len(images)} images")
+                return True
+            else:
+                print("❌ PDF conversion returned no images")
+                return False
+                
+        except Exception as e:
+            print(f"⚠️ Error converting PDF to images for inline display: {e}")
+            return False
+    
+    def load_pdf_text_inline(self, layout, pdf_path, colors):
+        """Load PDF text content inline to the layout."""
+        try:
+            pdf_content = self.read_pdf_file(pdf_path)
+            
+            # Create text widget for PDF content
+            pdf_text_widget = QTextEdit()
+            pdf_text_widget.setFont(QFont('Arial', 12, QFont.Weight.Normal))
+            pdf_text_widget.setStyleSheet(f"""
+                QTextEdit {{
+                    background-color: {colors.get('pdf_background', '#2a2a2a')};
+                    color: {colors.get('pdf_text', '#ffffff')};
+                    border: 2px solid #555555;
+                    border-radius: 5px;
+                    padding: 20px;
+                    line-height: 1.6;
+                    font-size: 12px;
+                    max-height: 400px;
+                }}
+            """)
+            
+            # Add warning message
+            warning_text = "⚠️ PDF IMAGE CONVERSION FAILED ⚠️\n"
+            warning_text += "Showing text-only content below:\n\n"
+            warning_text += "=" * 60 + "\n\n"
+            
+            pdf_text_widget.setPlainText(warning_text + pdf_content)
+            pdf_text_widget.setReadOnly(True)
+            
+            layout.addWidget(pdf_text_widget)
+            
+            print("📄 Added PDF as text content")
+            
+        except Exception as e:
+            print(f"⚠️ Error loading PDF text: {e}")
+            error_label = QLabel(f"⚠️ Error loading PDF: {e}")
+            error_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            error_label.setStyleSheet("color: red; font-size: 14px; margin: 10px;")
+            layout.addWidget(error_label)
+
     def setup_pdf_display(self):
         """Set up the PDF display area with proper PDF viewer for original formatting."""
         try:
@@ -199,8 +440,10 @@ class ConsentScreen(BaseScreen):
                     success = self.try_pdf_to_images(parent_layout, abs_pdf_path, COLORS)
                     if success:
                         print("✅ Method 1 succeeded: PDF loaded as images")
+                        self.log_action("PDF_METHOD_SUCCESS", "PDF loaded using image conversion method")
                     else:
                         print("❌ Method 1 failed: PDF to images conversion failed")
+                        self.log_action("PDF_METHOD_FAILED", "PDF image conversion method failed")
                 
                 # Method 2: Try web engine with PDF.js (if available)
                 print("🔄 Attempting Method 2: Web engine PDF viewer")
@@ -208,13 +451,16 @@ class ConsentScreen(BaseScreen):
                     success = self.try_web_pdf_viewer(parent_layout, abs_pdf_path, COLORS)
                     if success:
                         print("✅ Method 2 succeeded: Web engine viewer created")
+                        self.log_action("PDF_METHOD_SUCCESS", "PDF loaded using web engine method")
                     else:
                         print("❌ Method 2 failed: Web engine viewer failed")
+                        self.log_action("PDF_METHOD_FAILED", "PDF web engine method failed")
                 
                 # Method 3: Fallback to text extraction
                 if not success:
                     print("🔄 Attempting Method 3: Text extraction fallback")
                     print("📄 All PDF viewer methods failed, using text extraction")
+                    self.log_action("PDF_METHOD_FALLBACK", "Using text extraction fallback - images/web viewer failed")
                     self.load_pdf_fallback(parent_layout, abs_pdf_path, COLORS)
                     
             else:
@@ -253,7 +499,24 @@ class ConsentScreen(BaseScreen):
                 
                 # Convert PDF pages to images with proper environment
                 print("🔄 Converting PDF to images...")
-                images = convert_from_path(pdf_path, dpi=150, poppler_path=self._get_poppler_path())
+                print(f"🔍 Using poppler path: {self._get_poppler_path()}")
+                print(f"🔍 PDF file size: {os.path.getsize(pdf_path)} bytes")
+                print(f"🔍 PDF file permissions: {oct(os.stat(pdf_path).st_mode)[-3:]}")
+                
+                try:
+                    images = convert_from_path(pdf_path, dpi=150, poppler_path=self._get_poppler_path())
+                    print(f"🔍 PDF conversion returned {len(images) if images else 0} images")
+                except Exception as conversion_error:
+                    print(f"🔍 PDF conversion error details: {conversion_error}")
+                    print(f"🔍 Error type: {type(conversion_error).__name__}")
+                    # Try without explicit poppler path
+                    print("🔄 Retrying without explicit poppler path...")
+                    try:
+                        images = convert_from_path(pdf_path, dpi=150)
+                        print(f"🔍 Retry successful: {len(images) if images else 0} images")
+                    except Exception as retry_error:
+                        print(f"🔍 Retry also failed: {retry_error}")
+                        raise retry_error
             
             if images:
                 # Create scrollable area for images
@@ -328,13 +591,34 @@ class ConsentScreen(BaseScreen):
         except ImportError as e:
             print(f"⚠️ pdf2image library not available: {e}")
             print("🔧 Install with: pip install pdf2image")
-            print("🔧 Also requires poppler-utils (brew install poppler on macOS)")
+            print("🔧 Also requires poppler-utils:")
+            print("   - macOS: brew install poppler")
+            print("   - Linux: sudo apt-get install poppler-utils")
+            print("   - Windows: Download from https://github.com/oschwartz10612/poppler-windows/releases/")
+            print("🔧 Or run diagnostic: python utils/diagnose_pdf.py")
             return False
         except Exception as e:
             print(f"⚠️ Error converting PDF to images: {e}")
             print(f"🔍 Exception type: {type(e).__name__}")
             import traceback
             print(f"🔍 Full traceback: {traceback.format_exc()}")
+            
+            # Provide specific troubleshooting for common errors
+            error_msg = str(e).lower()
+            if "poppler" in error_msg or "pdftoppm" in error_msg:
+                print("🔧 This looks like a poppler installation issue.")
+                print("   - Make sure poppler-utils is installed")
+                print("   - Check that pdftoppm is in your PATH")
+                print("   - Run diagnostic: python utils/diagnose_pdf.py")
+            elif "permission" in error_msg or "access" in error_msg:
+                print("🔧 This looks like a file permission issue.")
+                print(f"   - Check PDF file permissions: {pdf_path}")
+                print("   - Make sure the file is readable")
+            elif "memory" in error_msg or "allocation" in error_msg:
+                print("🔧 This looks like a memory issue.")
+                print("   - Try reducing DPI (currently 150)")
+                print("   - Check available system memory")
+            
             return False
             
         return False

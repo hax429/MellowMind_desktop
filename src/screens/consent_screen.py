@@ -87,7 +87,11 @@ class ConsentScreen(BaseScreen):
         self.layout.addStretch(1)
         
         # Consent button - emphasized and responsive
-        initial_bg = '#DC143C' if not CONSENT_SCROLL_REQUIRED else '#CCCCCC'
+        try:
+            from config import COLORS
+            initial_bg = COLORS['consent_button_bg'] if not CONSENT_SCROLL_REQUIRED else COLORS['button_disabled']
+        except ImportError:
+            initial_bg = '#DC143C' if not CONSENT_SCROLL_REQUIRED else '#CCCCCC'
         initial_enabled = not CONSENT_SCROLL_REQUIRED
         
         button_width = max(200, min(400, int(screen_width * 0.20)))
@@ -105,7 +109,18 @@ class ConsentScreen(BaseScreen):
         
         if not initial_enabled:
             self.consent_button.setEnabled(False)
-            self.consent_button.setStyleSheet(f"background-color: #CCCCCC; color: #666666; border: 3px solid gray; border-radius: 8px; font-size: {button_font_size}px;")
+            try:
+                from config import COLORS, UI_SETTINGS
+                disabled_bg = COLORS['button_disabled']
+                disabled_text = COLORS['button_disabled_text']
+                border_color = COLORS['button_border']
+                border_radius = UI_SETTINGS['border_radius_medium']
+            except ImportError:
+                disabled_bg = '#CCCCCC'
+                disabled_text = '#666666'
+                border_color = 'gray'
+                border_radius = '8px'
+            self.consent_button.setStyleSheet(f"background-color: {disabled_bg}; color: {disabled_text}; border: 3px solid {border_color}; border-radius: {border_radius}; font-size: {button_font_size}px;")
         
         # Center the button
         button_layout = QHBoxLayout()
@@ -225,19 +240,20 @@ class ConsentScreen(BaseScreen):
                 print("⚡ Using preloaded PDF images")
                 images = self.preloaded_images
             else:
-                # Check if poppler is available
+                # Check if poppler is available with proper environment
                 import subprocess
                 try:
-                    result = subprocess.run(['pdftoppm', '-v'], capture_output=True, text=True, timeout=5)
+                    env = self._get_conda_environment()
+                    result = subprocess.run(['pdftoppm', '-v'], capture_output=True, text=True, timeout=5, env=env)
                     print(f"🔍 Poppler availability: {result.returncode == 0}")
                     if result.returncode != 0:
                         print(f"🔍 Poppler error: {result.stderr}")
                 except (subprocess.TimeoutExpired, FileNotFoundError) as e:
                     print(f"🔍 Poppler check failed: {e}")
                 
-                # Convert PDF pages to images
+                # Convert PDF pages to images with proper environment
                 print("🔄 Converting PDF to images...")
-                images = convert_from_path(pdf_path, dpi=150)
+                images = convert_from_path(pdf_path, dpi=150, poppler_path=self._get_poppler_path())
             
             if images:
                 # Create scrollable area for images
@@ -576,6 +592,96 @@ class ConsentScreen(BaseScreen):
             print(f"🔍 General error reading PDF: {e}")
             return f"ERROR reading PDF file: {str(e)}"
     
+    def _get_conda_environment(self):
+        """Get the conda environment variables for subprocess calls."""
+        env = os.environ.copy()
+        
+        # Try to detect conda environment paths - flexible for deployment
+        conda_paths = [
+            # Check common conda installation locations
+            '~/miniconda3/envs/moly/bin',
+            '~/anaconda3/envs/moly/bin',
+            '~/miniconda3/envs/mellowmind/bin',
+            '~/anaconda3/envs/mellowmind/bin',
+            '/opt/miniconda3/envs/moly/bin',
+            '/opt/anaconda3/envs/moly/bin',
+            '/usr/local/miniconda3/envs/moly/bin',
+            '/usr/local/anaconda3/envs/moly/bin',
+            # Check if conda is in PATH and try to find environments
+        ]
+        
+        # Also check for conda environments via conda command if available
+        try:
+            import subprocess
+            result = subprocess.run(['conda', 'info', '--envs'], capture_output=True, text=True, timeout=5)
+            if result.returncode == 0:
+                lines = result.stdout.split('\n')
+                for line in lines:
+                    if 'moly' in line or 'mellowmind' in line:
+                        parts = line.split()
+                        if len(parts) > 1 and os.path.exists(parts[-1]):
+                            conda_paths.insert(0, os.path.join(parts[-1], 'bin'))
+        except:
+            pass  # conda command not available, continue with hardcoded paths
+        
+        # Check for existing conda environment paths
+        conda_env_bin = None
+        for path in conda_paths:
+            expanded_path = os.path.expanduser(path)
+            if os.path.exists(expanded_path):
+                conda_env_bin = expanded_path
+                break
+        
+        # Also check CONDA_PREFIX if set
+        if not conda_env_bin and 'CONDA_PREFIX' in env:
+            potential_path = os.path.join(env['CONDA_PREFIX'], 'bin')
+            if os.path.exists(potential_path):
+                conda_env_bin = potential_path
+        
+        # Update PATH to include conda environment
+        if conda_env_bin:
+            current_path = env.get('PATH', '')
+            if conda_env_bin not in current_path:
+                env['PATH'] = f"{conda_env_bin}:{current_path}"
+                print(f"🔧 Added conda env to PATH: {conda_env_bin}")
+        
+        return env
+    
+    def _get_poppler_path(self):
+        """Get the path to poppler binaries for pdf2image."""
+        # Try to find poppler in conda environment - flexible for deployment
+        conda_paths = [
+            # Check user home directory first (most portable)
+            '~/miniconda3/envs/moly/bin',
+            '~/anaconda3/envs/moly/bin',
+            '~/miniconda3/envs/mellowmind/bin',
+            '~/anaconda3/envs/mellowmind/bin',
+            # Check system-wide installations
+            '/opt/miniconda3/envs/moly/bin',
+            '/opt/anaconda3/envs/moly/bin',
+            '/usr/local/miniconda3/envs/moly/bin',
+            '/usr/local/anaconda3/envs/moly/bin',
+            # Check Homebrew on macOS
+            '/opt/homebrew/miniconda3/envs/moly/bin',
+            '/usr/local/Caskroom/miniconda/base/envs/moly/bin'
+        ]
+        
+        for path in conda_paths:
+            expanded_path = os.path.expanduser(path)
+            if os.path.exists(os.path.join(expanded_path, 'pdftoppm')):
+                print(f"🔧 Found poppler at: {expanded_path}")
+                return expanded_path
+        
+        # Check CONDA_PREFIX if set
+        if 'CONDA_PREFIX' in os.environ:
+            potential_path = os.path.join(os.environ['CONDA_PREFIX'], 'bin')
+            if os.path.exists(os.path.join(potential_path, 'pdftoppm')):
+                print(f"🔧 Found poppler at CONDA_PREFIX: {potential_path}")
+                return potential_path
+        
+        print("⚠️ Could not find poppler path, using system default")
+        return None
+
     def preload_pdf_images(self):
         """Preload PDF images in the background for faster display."""
         if self.preloaded_images:
@@ -595,7 +701,7 @@ class ConsentScreen(BaseScreen):
                     abs_pdf_path = os.path.abspath(CONSENT_PDF_PATH)
                     if os.path.exists(abs_pdf_path):
                         print("🔄 Preloading PDF images in background...")
-                        self.preloaded_images = convert_from_path(abs_pdf_path, dpi=150)
+                        self.preloaded_images = convert_from_path(abs_pdf_path, dpi=150, poppler_path=self._get_poppler_path())
                         print(f"⚡ PDF images preloaded: {len(self.preloaded_images)} pages")
                 except Exception as e:
                     print(f"⚠️ Failed to preload PDF images: {e}")

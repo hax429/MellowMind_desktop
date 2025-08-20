@@ -5,7 +5,171 @@ from PyQt6.QtCore import Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QFont, QPixmap, QPainter
 import os
 import cv2
+import random
 from .base_screen import BaseScreen
+from countdown_widget import CountdownWidget
+
+
+class TransitionScreen(BaseScreen):
+    """Screen for displaying transition instructions before tasks."""
+    
+    def __init__(self, app_instance, logging_manager=None, task_type=None, next_screen_callback=None):
+        super().__init__(app_instance, logging_manager)
+        self.task_type = task_type
+        self.next_screen_callback = next_screen_callback
+        
+        # Load configuration or use defaults
+        try:
+            from config import (COLORS, TRANSITION_INSTRUCTION_TEXT, 
+                              TRANSITION_MESSAGES, TRANSITION_IMAGES, UI_SETTINGS)
+            self.background_color = COLORS['background_primary']
+            self.colors = COLORS
+            self.ui_settings = UI_SETTINGS
+            self.instruction_text = TRANSITION_INSTRUCTION_TEXT
+            self.messages = TRANSITION_MESSAGES
+            self.images = TRANSITION_IMAGES
+        except ImportError:
+            # Fallback values
+            self.background_color = '#220000'
+            self.colors = {'title': 'white', 'text_primary': 'white', 'text_accent': '#ffaa44'}
+            self.ui_settings = {'border_radius_large': '15px', 'line_height_normal': '1.4'}
+            self.instruction_text = "Please listen carefully for the instructor on how to proceed to the next part."
+            self.messages = {}
+            self.images = {}
+    
+    def setup_screen(self):
+        """Setup the transition screen with responsive layout."""
+        self.set_background_color(self.background_color)
+        
+        # Get screen dimensions for responsive scaling
+        screen_width = self.app.screen_width if hasattr(self.app, 'screen_width') else 1920
+        screen_height = self.app.screen_height if hasattr(self.app, 'screen_height') else 1080
+        
+        # Calculate responsive font sizes
+        title_font_size = max(24, min(48, int(screen_width * 0.025)))
+        instruction_font_size = max(16, min(28, int(screen_width * 0.015)))
+        message_font_size = max(18, min(32, int(screen_width * 0.017)))
+        button_font_size = max(16, min(28, int(screen_width * 0.015)))
+        
+        # Title
+        title = self.create_title(
+            "Task Transition",
+            font_size=title_font_size,
+            color=self.colors['title']
+        )
+        self.layout.addWidget(title)
+        self.layout.addStretch(1)
+        
+        # Main instruction text
+        instruction_label = self.create_instruction(
+            self.instruction_text,
+            font_size=instruction_font_size,
+            color=self.colors['text_primary']
+        )
+        instruction_label.setStyleSheet(f"""
+            color: {self.colors['text_primary']}; 
+            background-color: {self.colors['background_overlay']}; 
+            padding: {self.ui_settings.get('padding_medium', '20px')}; 
+            border-radius: {self.ui_settings.get('border_radius_large', '15px')};
+            font-size: {instruction_font_size}px;
+            font-weight: bold;
+            line-height: {self.ui_settings.get('line_height_normal', '1.4')};
+        """)
+        self.layout.addWidget(instruction_label)
+        self.layout.addStretch(1)
+        
+        # Task-specific message
+        if self.task_type and self.task_type in self.messages:
+            task_message = self.create_instruction(
+                self.messages[self.task_type],
+                font_size=message_font_size,
+                color=self.colors['text_accent']
+            )
+            task_message.setStyleSheet(f"""
+                color: {self.colors['text_accent']}; 
+                background-color: {self.colors['background_overlay_light']}; 
+                padding: {self.ui_settings.get('padding_large', '25px')}; 
+                border-radius: {self.ui_settings.get('border_radius_large', '15px')};
+                font-size: {message_font_size}px;
+                font-weight: bold;
+                line-height: {self.ui_settings.get('line_height_normal', '1.4')};
+            """)
+            self.layout.addWidget(task_message)
+            self.layout.addStretch(1)
+        
+        # Add image for specific tasks (like stroop)
+        if self.task_type and self.task_type in self.images:
+            self.add_task_image(self.images[self.task_type])
+        
+        # Go to next session button
+        button_width = max(200, min(400, int(screen_width * 0.2)))
+        button_height = max(60, min(120, int(screen_height * 0.1)))
+        
+        next_button = self.create_button(
+            "GO TO NEXT SESSION",
+            command=self.on_next_button_pressed,
+            font_size=button_font_size,
+            width=button_width,
+            height=button_height
+            # Colors now come from config via base_screen.py
+        )
+        
+        # Center the button
+        button_layout = QHBoxLayout()
+        button_layout.addStretch()
+        button_layout.addWidget(next_button)
+        button_layout.addStretch()
+        self.layout.addLayout(button_layout)
+        self.layout.addStretch(2)
+        
+        # Set initial focus to the button
+        next_button.setFocus()
+        
+        # Log screen display
+        self.log_action("TRANSITION_SCREEN_DISPLAYED", f"Transition screen displayed for {self.task_type} task")
+    
+    def add_task_image(self, image_path):
+        """Add a task-specific image to the screen."""
+        try:
+            if os.path.exists(image_path):
+                # Create image label
+                image_label = QLabel()
+                pixmap = QPixmap(image_path)
+                
+                # Scale image to fit screen while maintaining aspect ratio
+                screen_width = self.app.screen_width if hasattr(self.app, 'screen_width') else 1920
+                max_width = min(400, int(screen_width * 0.3))
+                max_height = 300
+                
+                scaled_pixmap = pixmap.scaled(max_width, max_height, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+                image_label.setPixmap(scaled_pixmap)
+                image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                image_label.setStyleSheet("border: 2px solid #444444; border-radius: 8px; background-color: rgba(0, 0, 0, 50);")
+                
+                self.layout.addWidget(image_label)
+                self.add_widget(image_label)
+                self.layout.addStretch(1)
+                
+                print(f"📸 Added image for {self.task_type} task: {image_path}")
+            else:
+                print(f"⚠️ Image not found: {image_path}")
+        except Exception as e:
+            print(f"⚠️ Error adding image: {e}")
+    
+    def on_next_button_pressed(self):
+        """Handle next button press."""
+        print(f"▶️ Transition complete - Moving to {self.task_type} task")
+        self.log_action("TRANSITION_COMPLETED", f"User clicked next button - transitioning to {self.task_type} task")
+        
+        if self.next_screen_callback:
+            self.next_screen_callback()
+        else:
+            print("⚠️ No next screen callback provided")
+    
+    def set_task_info(self, task_type, next_screen_callback):
+        """Set the task type and callback for this transition screen."""
+        self.task_type = task_type
+        self.next_screen_callback = next_screen_callback
 
 
 class RelaxationScreen(BaseScreen):
@@ -14,7 +178,11 @@ class RelaxationScreen(BaseScreen):
     def __init__(self, app_instance, logging_manager=None):
         super().__init__(app_instance, logging_manager)
         self.video_widget = None
-        self.background_color = 'black'
+        try:
+            from config import COLORS
+            self.background_color = COLORS['background_secondary']
+        except ImportError:
+            self.background_color = 'black'
     
     def setup_screen(self):
         """Setup the relaxation screen with video background, centered text, and responsive layout."""
@@ -31,7 +199,14 @@ class RelaxationScreen(BaseScreen):
         
         # Setup video display area - responsive sizing
         self.video_widget = QLabel()
-        self.video_widget.setStyleSheet(f"background-color: {self.background_color}; border: 2px solid #444444; border-radius: 8px;")
+        try:
+            from config import COLORS, UI_SETTINGS
+            border_color = COLORS['border_default']
+            border_radius = UI_SETTINGS['border_radius_medium']
+        except ImportError:
+            border_color = '#444444'
+            border_radius = '8px'
+        self.video_widget.setStyleSheet(f"background-color: {self.background_color}; border: 2px solid {border_color}; border-radius: {border_radius};")
         self.video_widget.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.video_widget.setMinimumSize(video_min_width, video_min_height)
         self.video_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
@@ -145,9 +320,9 @@ class RelaxationScreen(BaseScreen):
         self.log_action("RELAXATION_COUNTDOWN_STARTED", f"Hidden countdown started for {minutes} minutes")
     
     def transition_to_next_screen(self):
-        """Transition to the next screen (descriptive task)."""
-        print("🧘 Relaxation transition: Moving to descriptive task")
-        self.app.switch_to_descriptive_task()
+        """Transition to the next screen (during-study survey 1)."""
+        print("🧘 Relaxation transition: Moving to during-study survey 1")
+        self.app.switch_to_duringstudy1_survey()
 
 
 class DescriptiveTaskScreen(BaseScreen):
@@ -161,6 +336,7 @@ class DescriptiveTaskScreen(BaseScreen):
         self.descriptive_start_button = None
         self.corner_countdown_label = None
         self.task_started = False
+        self.developer_skip_button = None
         
         # Load configuration or use defaults
         try:
@@ -183,7 +359,10 @@ class DescriptiveTaskScreen(BaseScreen):
             self.prompts = ["Describe your current thoughts and feelings."]
             self.developer_mode = False
             
-        self.current_prompt_index = 0
+        # Select a random prompt instead of using index 0
+        import random
+        self.current_prompt_index = random.randint(0, len(self.prompts) - 1) if self.prompts else 0
+        print(f"🎯 DEBUG: Selected random prompt {self.current_prompt_index + 1}/{len(self.prompts)}: {self.prompts[self.current_prompt_index] if self.prompts else 'No prompts available'}")
         self.descriptive_font_size = 16
         self.descriptive_font_family = 'Arial'
     
@@ -223,43 +402,18 @@ class DescriptiveTaskScreen(BaseScreen):
         self.layout.addWidget(evaluation_hint)
         self.layout.addStretch(1)
         
-        # Countdown timer (if enabled) - responsive and emphasized
+        # Countdown timer using unified widget (if enabled)
         if self.countdown_enabled:
-            # Create main countdown display - emphasized
-            self.countdown_label = QLabel(f"⏰ You have {self.countdown_minutes} minutes for this task")
-            self.countdown_label.setFont(QFont('Arial', countdown_font_size, QFont.Weight.Bold))
-            self.countdown_label.setStyleSheet(f"""
-                color: {self.colors['countdown_normal']}; 
-                background-color: rgba(0, 0, 0, 150); 
-                padding: 15px; 
-                border-radius: 10px;
-                font-size: {countdown_font_size}px;
-                border: 2px solid {self.colors['countdown_normal']};
-            """)
-            self.countdown_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            self.layout.addWidget(self.countdown_label)
-            self.layout.addStretch(1)
-            
-            # Create corner countdown timer (top-right) - responsive and emphasized
-            self.corner_countdown_label = QLabel(self)
-            self.corner_countdown_label.setText("0:00")
-            self.corner_countdown_label.setFont(QFont('Arial', corner_countdown_font_size, QFont.Weight.Bold))
-            self.corner_countdown_label.setStyleSheet(f"""
-                QLabel {{
-                    color: #00FF00;
-                    background-color: rgba(0, 0, 0, 200);
-                    border: 4px solid white;
-                    padding: 20px;
-                    border-radius: 15px;
-                    font-size: {corner_countdown_font_size}px;
-                }}
-            """)
-            self.corner_countdown_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            # Position will be set after screen is shown
-            
-            # Store references for the countdown manager
-            self.add_widget(self.countdown_label)
-            self.add_widget(self.corner_countdown_label)
+            # Create unified countdown widget
+            self.countdown_widget = CountdownWidget(
+                parent_screen=self,
+                countdown_minutes=self.countdown_minutes,
+                show_main_display=True,
+                show_corner_display=True
+            )
+            # References for compatibility with existing countdown manager
+            self.countdown_label = self.countdown_widget.countdown_label
+            self.corner_countdown_label = self.countdown_widget.corner_countdown_label
         
         # Start button - emphasized and responsive
         button_width = max(150, min(300, int(screen_width * 0.15)))
@@ -295,20 +449,9 @@ class DescriptiveTaskScreen(BaseScreen):
         # Response textbox
         self.setup_response_textbox()
         
-        # Controls info (only show in developer mode)
+        # Developer skip button (only show in developer mode)
         if self.developer_mode:
-            controls = self.create_instruction(
-                "ENTER - Stroop Task",
-                font_size=max(12, min(20, int(screen_width * 0.010))),
-                color=self.colors['text_secondary'],
-                bg_color=self.background_color
-            )
-            self.layout.addWidget(controls)
-            self.layout.addStretch(1)
-        
-        # Bind keys (only allow navigation in developer mode OR when countdown has finished)
-        if self.developer_mode:
-            self.bind_key('<Return>', self.on_enter_pressed)
+            self.setup_developer_skip_button(screen_width, screen_height)
         
         # Set initial focus to the start button
         self.descriptive_start_button.setFocus()
@@ -322,11 +465,11 @@ class DescriptiveTaskScreen(BaseScreen):
         screen_width = self.app.screen_width if hasattr(self.app, 'screen_width') else 1920
         screen_height = self.app.screen_height if hasattr(self.app, 'screen_height') else 1080
         
-        # Calculate responsive sizes
-        label_font_size = max(12, min(20, int(screen_width * 0.011)))
-        text_font_size = max(10, min(18, int(screen_width * 0.009)))
-        textbox_height = max(300, min(600, int(screen_height * 0.35)))
-        word_count_font_size = max(10, min(16, int(screen_width * 0.008)))
+        # Calculate responsive sizes - increased for better visibility
+        label_font_size = max(14, min(24, int(screen_width * 0.013)))
+        text_font_size = max(12, min(20, int(screen_width * 0.011)))
+        textbox_height = max(400, min(700, int(screen_height * 0.45)))  # Increased height
+        word_count_font_size = max(12, min(18, int(screen_width * 0.010)))
         
         # Response label - responsive
         response_label = QLabel("Your Response:")
@@ -349,7 +492,7 @@ class DescriptiveTaskScreen(BaseScreen):
             }}
         """)
         self.response_text.setMinimumHeight(textbox_height)
-        self.response_text.setMaximumHeight(int(screen_height * 0.4))
+        self.response_text.setMaximumHeight(int(screen_height * 0.5))  # Increased max height
         self.response_text.setEnabled(False)  # Initially disabled
         
         self.layout.addWidget(self.response_text)
@@ -363,26 +506,38 @@ class DescriptiveTaskScreen(BaseScreen):
         self.add_widget(self.word_count_label)
         self.layout.addStretch(1)
     
+    def setup_developer_skip_button(self, screen_width, screen_height):
+        """Setup developer-only skip button for quick navigation."""
+        # Calculate responsive button size
+        button_width = max(120, min(200, int(screen_width * 0.12)))
+        button_height = max(40, min(60, int(screen_height * 0.06)))
+        button_font_size = max(12, min(18, int(screen_width * 0.012)))
+        
+        # Create skip button (initially hidden)
+        self.developer_skip_button = self.create_button(
+            "DEV: SKIP TO STROOP",
+            command=self.on_developer_skip_pressed,
+            font_size=button_font_size,
+            width=button_width,
+            height=button_height,
+            bg_color='#FF4444',  # Red to indicate developer feature
+            fg_color='white'
+        )
+        
+        # Position button in top-left corner
+        self.developer_skip_button.hide()  # Initially hidden
+        self.add_widget(self.developer_skip_button)
+        
+        # Use absolute positioning for the button
+        self.developer_skip_button.setParent(self)
+        self.developer_skip_button.setGeometry(20, 20, button_width, button_height)
+    
     def position_corner_countdown(self):
-        """Position the corner countdown timer after the screen is shown."""
-        if hasattr(self, 'corner_countdown_label') and self.corner_countdown_label:
-            # Calculate position based on parent widget size
-            parent_width = self.width() if self.width() > 0 else self.app.screen_width
-            print(f"🎯 DEBUG: Positioning corner countdown - parent_width:{parent_width}, screen_width:{self.app.screen_width}")
-            
-            # Position in top-right corner
-            x_pos = parent_width - 220
-            y_pos = 20
-            width = 250
-            height = 150
-
-            print(f"🎯 DEBUG: Setting corner countdown geometry to: x:{x_pos}, y:{y_pos}, w:{width}, h:{height}")
-            self.corner_countdown_label.setGeometry(x_pos, y_pos, width, height)
-            self.corner_countdown_label.show()
-            self.corner_countdown_label.raise_()
-            print(f"🎯 DEBUG: Corner countdown positioned and shown")
+        """Position the corner countdown timer using unified widget."""
+        if hasattr(self, 'countdown_widget') and self.countdown_widget:
+            self.countdown_widget.position_corner_countdown()
         else:
-            print(f"🎯 DEBUG: Cannot position corner countdown - label does not exist")
+            print(f"🎯 DEBUG: Descriptive unified countdown widget not available for positioning")
     
     def start_descriptive_task(self):
         """Start the descriptive task - enable textbox and start countdown."""
@@ -416,37 +571,37 @@ class DescriptiveTaskScreen(BaseScreen):
         current_prompt = self.prompts[self.current_prompt_index] if self.current_prompt_index < len(self.prompts) else "No prompt available"
         self.log_action("DESCRIPTIVE_TASK_STARTED", f"Task started with prompt: {current_prompt[:50]}...")
         
-        # Position corner countdown if it exists
-        if hasattr(self, 'corner_countdown_label'):
-            self.position_corner_countdown()
-        
-        # Start countdown timer (if enabled) with new system
+        # Start unified countdown if enabled
         if self.countdown_enabled:
-            print(f"🎯 DEBUG: Setting up countdown labels...")
-            
-            # Set up countdown manager with our labels
-            if hasattr(self, 'countdown_label'):
-                print(f"🎯 DEBUG: Main countdown label exists: {self.countdown_label is not None}")
-                print(f"🎯 DEBUG: Main label text: {self.countdown_label.text() if self.countdown_label else 'None'}")
-                self.app.countdown_manager.setup_countdown_label(self.countdown_label)
-            else:
-                print(f"🎯 DEBUG: No main countdown label found!")
-                
-            if hasattr(self, 'corner_countdown_label'):
-                print(f"🎯 DEBUG: Corner countdown label exists: {self.corner_countdown_label is not None}")
-                print(f"🎯 DEBUG: Corner label text: {self.corner_countdown_label.text() if self.corner_countdown_label else 'None'}")
-                print(f"🎯 DEBUG: Corner label parent: {self.corner_countdown_label.parent() if self.corner_countdown_label else 'None'}")
-                self.app.countdown_manager.set_corner_countdown_label(self.corner_countdown_label)
-            else:
-                print(f"🎯 DEBUG: No corner countdown label found!")
-            
-            # Start the countdown
-            print(f"🎯 DEBUG: Starting countdown with {self.countdown_minutes} minutes...")
-            print(f"🎯 DEBUG: Using screen name: {self.screen_name}")
-            self.app.countdown_manager.start_countdown(self.countdown_minutes, self.screen_name)
-            
-            # Always auto-transition when countdown finishes, regardless of mode
-            self.app.countdown_manager.set_countdown_finish_callback(self.auto_transition_from_descriptive)
+            try:
+                if hasattr(self, 'countdown_widget'):
+                    # Use unified countdown widget to start countdown
+                    self.countdown_widget.start_countdown(self.auto_transition_from_descriptive)
+                    print(f"🎯 Descriptive task unified countdown started successfully")
+            except Exception as e:
+                print(f"⚠️ Error setting up descriptive task countdown: {e}")
+                # Continue without countdown instead of crashing
+                pass
+        
+        # Show developer skip button if in developer mode
+        if self.developer_mode and hasattr(self, 'developer_skip_button') and self.developer_skip_button:
+            self.developer_skip_button.show()
+            self.developer_skip_button.raise_()  # Bring to front
+            print("🔧 Developer skip button shown")
+    
+    def on_developer_skip_pressed(self):
+        """Handle developer skip button press."""
+        print("🔧 Developer skip button pressed - Skipping to Stroop task...")
+        self.log_action("DESCRIPTIVE_DEVELOPER_SKIP", "Developer skip button pressed - jumping to Stroop task")
+        
+        # Stop the countdown timer if running
+        if hasattr(self.app, 'countdown_manager'):
+            self.app.countdown_manager.stop_countdown()
+            print("⏰ Countdown stopped by developer skip button")
+        
+        # Save current response and transition
+        self.save_current_response()
+        self.transition_to_next_screen()
     
     def show_current_prompt(self):
         """Show current descriptive prompt."""
@@ -511,24 +666,6 @@ class DescriptiveTaskScreen(BaseScreen):
             self.save_current_response()
             self.transition_to_next_screen()
     
-    def on_enter_pressed(self):
-        """Handle Enter key in descriptive task - skip countdown and go to next screen."""
-        if self.developer_mode:
-            print("🎬 Enter pressed in developer mode - Skipping countdown and going to next screen...")
-            
-            # Stop the countdown timer
-            if hasattr(self.app, 'countdown_manager'):
-                self.app.countdown_manager.stop_countdown()
-                print("⏰ Countdown stopped by developer mode Enter key")
-            
-            self.log_action("DESCRIPTIVE_ENTER_KEY_DEVELOPER", "Enter key pressed - developer mode countdown skip")
-        else:
-            print("🎬 Enter pressed - Going to next screen...")
-            self.log_action("DESCRIPTIVE_ENTER_KEY_NORMAL", "Enter key pressed - normal mode navigation")
-        
-        self.save_current_response()
-        self.transition_to_next_screen()
-    
     def save_current_response(self):
         """Save the current response before leaving the screen."""
         if hasattr(self, 'response_text') and self.response_text:
@@ -541,15 +678,9 @@ class DescriptiveTaskScreen(BaseScreen):
                 print(f"Error saving response: {e}")
     
     def transition_to_next_screen(self):
-        """Transition to the next screen (Stroop)."""
-        print("📝 Descriptive task transition: Moving to Stroop task")
-        if hasattr(self.app, 'stroop_screen'):
-            print("🔍 Using app.stroop_screen for navigation")
-            self.app.switch_to_screen(self.app.stroop_screen)
-        else:
-            print("🔍 Using switch_to_stroop() method")
-            # Fallback to direct method call
-            self.app.switch_to_stroop()
+        """Transition to the next screen (Stroop transition)."""
+        print("📝 Descriptive task transition: Moving to Stroop task transition")
+        self.app.switch_to_stroop_transition()
 
 
 class StroopScreen(BaseScreen):
@@ -563,6 +694,7 @@ class StroopScreen(BaseScreen):
         self.task_started = False
         self.corner_countdown_label = None
         self.stroop_start_button = None
+        self.transition_triggered = False
         
         # Load configuration or use defaults
         try:
@@ -600,9 +732,9 @@ class StroopScreen(BaseScreen):
         button_font_size = max(16, min(28, int(screen_width * 0.015)))
         corner_countdown_font_size = max(70, min(140, int(screen_width * 0.07)))
         
-        # Calculate responsive sizes
-        video_min_width = max(600, int(screen_width * 0.7))
-        video_min_height = max(400, int(screen_height * 0.55))
+        # Calculate responsive sizes - increased for better visibility
+        video_min_width = max(800, int(screen_width * 0.8))  # Increased from 0.7 to 0.8
+        video_min_height = max(500, int(screen_height * 0.65))  # Increased from 0.55 to 0.65
         
         # Title - emphasized and responsive
         title = self.create_title(
@@ -622,30 +754,24 @@ class StroopScreen(BaseScreen):
         self.layout.addWidget(instruction)
         self.layout.addStretch(1)
         
-        # Corner countdown timer (top-right) - responsive and emphasized
+        # Countdown timer using unified widget (corner only for Stroop)
         if self.countdown_enabled:
-            self.corner_countdown_label = QLabel(self)
-            self.corner_countdown_label.setText("0:00")
-            self.corner_countdown_label.setFont(QFont('Arial', corner_countdown_font_size, QFont.Weight.Bold))
-            self.corner_countdown_label.setStyleSheet(f"""
-                QLabel {{
-                    color: #00FF00;
-                    background-color: rgba(0, 0, 0, 200);
-                    border: 5px solid white;
-                    padding: 20px;
-                    border-radius: 15px;
-                    font-size: {corner_countdown_font_size}px;
-                }}
-            """)
-            self.corner_countdown_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            self.add_widget(self.corner_countdown_label)
+            # Create unified countdown widget (corner display only for Stroop)
+            self.countdown_widget = CountdownWidget(
+                parent_screen=self,
+                countdown_minutes=self.countdown_minutes,
+                show_main_display=False,
+                show_corner_display=True
+            )
+            # References for compatibility with existing countdown manager
+            self.corner_countdown_label = self.countdown_widget.corner_countdown_label
         
         # Video display area - responsive sizing and emphasized
         self.video_widget = QLabel()
         self.video_widget.setStyleSheet(f"background-color: black; border: 3px solid #444444; border-radius: 8px;")
         self.video_widget.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.video_widget.setMinimumSize(video_min_width, video_min_height)
-        self.video_widget.setMaximumSize(int(screen_width * 0.9), int(screen_height * 0.7))
+        self.video_widget.setMaximumSize(int(screen_width * 0.95), int(screen_height * 0.8))  # Increased max size
         self.video_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.layout.addWidget(self.video_widget)
         self.add_widget(self.video_widget)
@@ -714,20 +840,11 @@ class StroopScreen(BaseScreen):
         self.log_action("STROOP_SCREEN_DISPLAYED", "Stroop task screen displayed with video/placeholder")
     
     def position_corner_countdown(self):
-        """Position the corner countdown timer after the screen is shown."""
-        if hasattr(self, 'corner_countdown_label') and self.corner_countdown_label:
-            # Calculate position based on parent widget size
-            parent_width = self.width() if self.width() > 0 else self.app.screen_width
-            
-            # Position in top-right corner
-            x_pos = parent_width - 320
-            y_pos = 20
-            width = 250
-            height = 150
-
-            self.corner_countdown_label.setGeometry(x_pos, y_pos, width, height)
-            self.corner_countdown_label.show()
-            self.corner_countdown_label.raise_()
+        """Position the corner countdown timer using unified widget."""
+        if hasattr(self, 'countdown_widget') and self.countdown_widget:
+            self.countdown_widget.position_corner_countdown()
+        else:
+            print(f"🎦 DEBUG: Stroop unified countdown widget not available for positioning")
     
     def start_stroop_task(self):
         """Start the Stroop task with countdown and video."""
@@ -747,6 +864,9 @@ class StroopScreen(BaseScreen):
         self.task_started = True
         
         if os.path.exists(self.video_path):
+            # Set up video completion callback for auto-transition
+            self.app.video_manager.set_video_end_callback(lambda: self.on_video_end())
+            
             # Start video playback from 3-minute mark (180 seconds)
             fps = self.app.video_manager.cap.get(cv2.CAP_PROP_FPS)
             frame_number = int(180 * fps)  # 180 seconds * fps
@@ -755,42 +875,635 @@ class StroopScreen(BaseScreen):
             print("🎬 Stroop video started from 3-minute mark")
             self.log_action("STROOP_VIDEO_STARTED_3_MIN", "Stroop video started from 3:00 mark")
         
-        # Start countdown if enabled
+        # Start unified countdown if enabled
         if self.countdown_enabled:
-            # Set up countdown labels
-            if hasattr(self, 'corner_countdown_label'):
-                self.app.countdown_manager.set_corner_countdown_label(self.corner_countdown_label)
-                self.position_corner_countdown()
-            
-            # Always auto-transition when countdown finishes
-            self.app.countdown_manager.set_countdown_finish_callback(self.auto_transition_from_stroop)
-            self.app.countdown_manager.start_countdown(self.countdown_minutes, self.screen_name)
+            try:
+                if hasattr(self, 'countdown_widget'):
+                    # Use unified countdown widget to start countdown
+                    self.countdown_widget.start_countdown(self.auto_transition_from_stroop)
+                    print(f"🎦 Stroop task unified countdown started successfully")
+            except Exception as e:
+                print(f"⚠️ Error setting up stroop task countdown: {e}")
+                # Continue without countdown instead of crashing
+                pass
             
         # Set focus to main content
         self.setFocus()
     
+    def on_video_end(self):
+        """Handle when Stroop video reaches its natural end."""
+        if self.app.current_screen == self.screen_name and not self.transition_triggered:
+            self.transition_triggered = True
+            print("🎬 Stroop video finished - Auto-transitioning to Math task")
+            self.log_action("STROOP_VIDEO_END_TRANSITION", "Stroop video completed, automatically transitioning to Math task")
+            self.transition_to_next_screen()
+    
     def on_enter_pressed(self):
         """Handle Enter key in developer mode."""
-        if self.developer_mode:
+        if self.developer_mode and not self.transition_triggered:
+            self.transition_triggered = True
             print("🎯 Enter pressed in Stroop task - Skipping to Math task...")
             self.log_action("STROOP_ENTER_KEY_DEVELOPER", "Enter key pressed - developer mode skip")
             self.transition_to_next_screen()
     
     def auto_transition_from_stroop(self):
         """Auto-transition when countdown finishes."""
-        if self.app.current_screen == self.screen_name:
+        if self.app.current_screen == self.screen_name and not self.transition_triggered:
+            self.transition_triggered = True
             mode_text = "developer mode" if self.developer_mode else "production mode"
             print(f"⏰ Stroop task countdown finished - Auto-transitioning to Math task ({mode_text})")
             self.log_action("STROOP_COUNTDOWN_AUTO_TRANSITION", f"Stroop task countdown completed in {mode_text}, automatically transitioning to math")
             self.transition_to_next_screen()
     
     def transition_to_next_screen(self):
-        """Transition to the next screen (Math task)."""
-        print("🎬 Stroop transition: Moving to Math task")
-        if hasattr(self.app, 'math_screen'):
-            self.app.switch_to_screen(self.app.math_screen)
+        """Transition to the next screen (Math task transition)."""
+        print("🎬 Stroop transition: Moving to Math task transition")
+        self.app.switch_to_math_transition()
+
+
+class NativeStroopScreen(BaseScreen):
+    """Screen for native Stroop task with generated word list."""
+    
+    def __init__(self, app_instance, logging_manager=None):
+        print("🎨 DEBUG: Creating NativeStroopScreen instance")
+        super().__init__(app_instance, logging_manager)
+        print(f"🎨 DEBUG: NativeStroopScreen initialized with screen_name: {self.screen_name}")
+        self.task_started = False
+        self.corner_countdown_label = None
+        self.stroop_start_button = None
+        self.transition_triggered = False
+        self.scroll_area = None
+        self.word_container = None
+        self.current_words = []
+        
+        # Stroop word and color lists
+        self.words = ['red', 'green', 'blue', 'purple', 'brown']
+        self.stroop_colors = ['red', 'green', 'blue', 'purple', 'brown']
+        
+        # Color mapping for CSS
+        self.color_map = {
+            'red': '#FF0000',
+            'green': '#00FF00', 
+            'blue': '#0000FF',
+            'purple': '#800080',
+            'brown': '#8B4513'
+        }
+        
+        # Track last word and color to avoid consecutive duplicates
+        self.last_word = None
+        self.last_color = None
+        
+        # Track recent words and colors for better randomization
+        self.recent_words = []
+        self.recent_colors = []
+        
+        # Seed random number generator
+        import time
+        random.seed(int(time.time()))
+        
+        # Load configuration or use defaults
+        try:
+            from config import (BACKGROUND_COLOR, COLORS, COUNTDOWN_ENABLED, 
+                              STROOP_COUNTDOWN_ENABLED, STROOP_COUNTDOWN_MINUTES,
+                              DEVELOPER_MODE)
+            self.background_color = BACKGROUND_COLOR
+            self.colors = COLORS if isinstance(COLORS, dict) else {
+                'title': 'white', 
+                'text_primary': 'white',
+                'countdown_normal': '#00FF00',
+                'countdown_warning': '#FFFF00',
+                'countdown_critical': '#FF0000'
+            }
+            self.countdown_enabled = COUNTDOWN_ENABLED and STROOP_COUNTDOWN_ENABLED
+            self.countdown_minutes = STROOP_COUNTDOWN_MINUTES
+            self.developer_mode = DEVELOPER_MODE
+        except ImportError:
+            # Fallback values
+            self.background_color = '#8B0000'
+            self.colors = {
+                'title': 'white', 
+                'text_primary': 'white',
+                'countdown_normal': '#00FF00',
+                'countdown_warning': '#FFFF00',
+                'countdown_critical': '#FF0000'
+            }
+            self.countdown_enabled = True
+            self.countdown_minutes = 1
+            self.developer_mode = False
+    
+    def generate_stroop_word(self, position_in_batch=0):
+        """Generate a Stroop word with improved randomization constraints."""
+        max_attempts = 100
+        
+        for attempt in range(max_attempts):
+            # Get available words - avoid recent words
+            recent_words_set = set(self.recent_words[-8:])
+            available_words = [w for w in self.words if w not in recent_words_set]
+            if not available_words:
+                word_counts = {w: self.recent_words[-10:].count(w) for w in self.words}
+                min_count = min(word_counts.values()) if word_counts else 0
+                available_words = [w for w, count in word_counts.items() if count == min_count]
+            
+            word = random.choice(available_words)
+            
+            # Get available colors - avoid recent colors and word match
+            recent_colors_set = set(self.recent_colors[-12:])
+            available_colors = [c for c in self.stroop_colors 
+                             if c != word and c not in recent_colors_set]
+            
+            if not available_colors:
+                available_colors = [c for c in self.stroop_colors if c != word]
+            
+            if available_colors:
+                color = random.choice(available_colors)
+                
+                # Update tracking lists
+                self.recent_words.append(word)
+                self.recent_colors.append(color)
+                
+                # Keep only last 30 items
+                if len(self.recent_words) > 30:
+                    self.recent_words = self.recent_words[-30:]
+                if len(self.recent_colors) > 30:
+                    self.recent_colors = self.recent_colors[-30:]
+                
+                self.last_word = word
+                self.last_color = color
+                
+                return word, color
+        
+        # Fallback
+        word = random.choice(self.words)
+        available_colors = [c for c in self.stroop_colors if c != word]
+        color = random.choice(available_colors) if available_colors else random.choice(self.stroop_colors)
+        
+        self.last_word = word
+        self.last_color = color
+        
+        return word, color
+    
+    def generate_word_batch(self, count=20):
+        """Generate a batch of Stroop words."""
+        try:
+            print(f"🎨 DEBUG: Generating word batch with count={count}")
+            words = []
+            
+            for i in range(count):
+                position_in_batch = len(self.current_words) + i
+                word, color = self.generate_stroop_word(position_in_batch)
+                words.append((word, color))
+            
+            print(f"🎨 DEBUG: Generated {len(words)} words")
+            return words
+            
+        except Exception as e:
+            print(f"🚨 ERROR in generate_word_batch: {e}")
+            import traceback
+            print(f"🚨 Full traceback: {traceback.format_exc()}")
+            return []
+    
+    def reset_randomization_state(self):
+        """Reset randomization state for a fresh start."""
+        import time
+        random.seed(int(time.time() * 1000000) % 2**32)
+        
+        self.recent_words = []
+        self.recent_colors = []
+        self.last_word = None
+        self.last_color = None
+        
+        print(f"🎨 Randomization state reset with new seed")
+    
+    def setup_screen(self):
+        """Setup the native Stroop task screen."""
+        try:
+            print(f"🎨 DEBUG: Setting up Native Stroop screen with name: {self.screen_name}")
+            self.set_background_color(self.background_color)
+            
+            # Get screen dimensions for responsive scaling
+            screen_width = self.app.screen_width if hasattr(self.app, 'screen_width') else 1920
+            screen_height = self.app.screen_height if hasattr(self.app, 'screen_height') else 1080
+            print(f"🎨 DEBUG: Screen dimensions: {screen_width}x{screen_height}")
+            
+            # Calculate responsive font sizes
+            title_font_size = max(24, min(56, int(screen_width * 0.030)))
+            instruction_font_size = max(14, min(24, int(screen_width * 0.013)))
+            button_font_size = max(16, min(28, int(screen_width * 0.015)))
+            
+            # Title
+            title = self.create_title(
+                "Stroop Task",
+                font_size=title_font_size,
+                color=self.colors['title']
+            )
+            self.layout.addWidget(title)
+            self.layout.addStretch(1)
+            
+            # Instructions
+            instruction = self.create_instruction(
+                "Say the COLOR of each word (not the word itself). Scroll to see more words.",
+                font_size=instruction_font_size,
+                color=self.colors['text_primary']
+            )
+            self.layout.addWidget(instruction)
+            self.layout.addStretch(1)
+            
+            # Countdown timer using unified widget (corner only for Stroop)
+            print(f"🎨 DEBUG: Countdown enabled: {self.countdown_enabled}")
+            if self.countdown_enabled:
+                print("🎨 DEBUG: Creating countdown widget")
+                self.countdown_widget = CountdownWidget(
+                    parent_screen=self,
+                    countdown_minutes=self.countdown_minutes,
+                    show_main_display=False,
+                    show_corner_display=True
+                )
+                self.corner_countdown_label = self.countdown_widget.corner_countdown_label
+                print("🎨 DEBUG: Countdown widget created successfully")
+            
+            # Start button
+            button_width = max(150, min(300, int(screen_width * 0.15)))
+            button_height = max(50, min(100, int(screen_height * 0.08)))
+            
+            self.stroop_start_button = self.create_button(
+                "START TASK",
+                command=self.start_stroop_task,
+                font_size=button_font_size,
+                width=button_width,
+                height=button_height,
+                bg_color='#4CAF50',
+                fg_color='white'
+            )
+            
+            # Center the button
+            button_layout = QHBoxLayout()
+            button_layout.addStretch()
+            button_layout.addWidget(self.stroop_start_button)
+            button_layout.addStretch()
+            self.layout.addLayout(button_layout)
+            self.layout.addStretch(1)
+            self.add_widget(self.stroop_start_button)
+            
+            # Setup scrollable word area (initially hidden)
+            self.setup_word_area()
+            
+            # Bind keys for developer mode
+            if self.developer_mode:
+                print("🎨 DEBUG: Binding Enter key for developer mode")
+                self.bind_key('<Return>', self.on_enter_pressed)
+            
+            # Set initial focus to start button
+            self.stroop_start_button.setFocus()
+            
+            # Log screen display
+            self.log_action("NATIVE_STROOP_SCREEN_DISPLAYED", "Native Stroop task screen displayed")
+            
+            print("🎨 DEBUG: Native Stroop screen setup completed successfully")
+            
+        except Exception as e:
+            print(f"🚨 ERROR in setup_screen: {e}")
+            import traceback
+            print(f"🚨 Full traceback: {traceback.format_exc()}")
+            try:
+                self.log_action("NATIVE_STROOP_SETUP_ERROR", f"Error in setup_screen: {e}")
+            except:
+                print("🚨 Could not log setup error")
+            raise
+    
+    def setup_word_area(self):
+        """Setup the scrollable word display area."""
+        try:
+            print("🎨 DEBUG: Setting up word area")
+            
+            # Get screen dimensions
+            screen_width = self.app.screen_width if hasattr(self.app, 'screen_width') else 1920
+            screen_height = self.app.screen_height if hasattr(self.app, 'screen_height') else 1080
+            
+            # Calculate area dimensions - make it take more space
+            area_height = max(600, int(screen_height * 0.75))
+            
+            # Create scroll area
+            self.scroll_area = QScrollArea()
+            self.scroll_area.setWidgetResizable(True)
+            self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+            self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+            self.scroll_area.setMinimumHeight(area_height)
+            self.scroll_area.setMaximumHeight(area_height)
+            
+            # Style the scroll area
+            self.scroll_area.setStyleSheet(f"""
+                QScrollArea {{
+                    border: 3px solid #444444;
+                    border-radius: 8px;
+                    background-color: black;
+                }}
+                QScrollBar:vertical {{
+                    background-color: #444444;
+                    width: 20px;
+                    border-radius: 10px;
+                }}
+                QScrollBar::handle:vertical {{
+                    background-color: #666666;
+                    border-radius: 10px;
+                    min-height: 20px;
+                }}
+                QScrollBar::handle:vertical:hover {{
+                    background-color: #888888;
+                }}
+            """)
+            
+            # Create container widget for words using QTextEdit for proper scrolling
+            from PyQt6.QtWidgets import QTextEdit
+            self.word_container = QTextEdit()
+            self.word_container.setReadOnly(True)
+            self.word_container.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+            self.word_container.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+            self.word_container.setStyleSheet("""
+                QTextEdit {
+                    background-color: black;
+                    color: white;
+                    padding: 20px;
+                    border: none;
+                    font-family: Arial;
+                }
+            """)
+            
+            # Set scroll area widget
+            self.scroll_area.setWidget(self.word_container)
+            
+            # Enable proper focus and wheel events
+            self.scroll_area.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+            self.word_container.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+            
+            # Initially hide the scroll area
+            self.scroll_area.hide()
+            
+            # Add to layout
+            self.layout.addWidget(self.scroll_area)
+            self.add_widget(self.scroll_area)
+            
+            # Connect scroll event to generate more words
+            self.scroll_area.verticalScrollBar().valueChanged.connect(self.on_scroll)
+            
+            print("🎨 DEBUG: Word area setup completed successfully")
+            
+        except Exception as e:
+            print(f"🚨 ERROR in setup_word_area: {e}")
+            import traceback
+            print(f"🚨 Full traceback: {traceback.format_exc()}")
+    
+    def keyPressEvent(self, event):
+        """Handle key press events, especially for Enter key in developer mode."""
+        try:
+            from PyQt6.QtCore import Qt
+            
+            # Handle Enter key in developer mode
+            if (event.key() == Qt.Key.Key_Return or event.key() == Qt.Key.Key_Enter) and self.developer_mode:
+                print("🎯 DEBUG: Enter key detected via keyPressEvent")
+                self.on_enter_pressed()
+                event.accept()
+                return
+            
+            # Pass to parent for other keys
+            super().keyPressEvent(event)
+            
+        except Exception as e:
+            print(f"⚠️ Error in keyPressEvent: {e}")
+            super().keyPressEvent(event)
+    
+    def on_scroll(self, value):
+        """Handle scroll events to generate more words when needed."""
+        try:
+            scroll_bar = self.scroll_area.verticalScrollBar()
+            # When user scrolls near bottom, generate more words
+            if value >= scroll_bar.maximum() - 100:
+                self.add_more_words()
+        except Exception as e:
+            print(f"⚠️ Error in scroll handler: {e}")
+    
+    def add_more_words(self):
+        """Add more words to the display."""
+        try:
+            new_words = self.generate_word_batch(50)  # Generate 50 more words
+            self.current_words.extend(new_words)
+            self.update_word_display()
+        except Exception as e:
+            print(f"⚠️ Error adding more words: {e}")
+    
+    def update_word_display(self):
+        """Update the word display with current words in 10 columns."""
+        try:
+            print("🎨 DEBUG: Entering update_word_display")
+            
+            if not self.word_container:
+                print("🎨 DEBUG: ERROR - word_container is None!")
+                return
+            
+            print(f"🎨 DEBUG: Updating display with {len(self.current_words)} words")
+            
+            # Calculate responsive font size
+            screen_width = self.app.screen_width if hasattr(self.app, 'screen_width') else 1920
+            word_font_size = max(24, min(48, int(screen_width * 0.025)))
+            
+            # Create HTML content for words in a 10-column table layout
+            html_content = """
+            <div style='background-color: black; padding: 20px;'>
+                <table style='width: 100%; border-collapse: separate; border-spacing: 15px;'>
+            """
+            
+            # Arrange words in rows of 10 columns
+            for i in range(0, len(self.current_words), 10):
+                html_content += "<tr>"
+                
+                # Add up to 10 words per row
+                for j in range(10):
+                    if i + j < len(self.current_words):
+                        word, color = self.current_words[i + j]
+                        color_hex = self.color_map[color]
+                        html_content += f"""
+                        <td style='text-align: center; padding: 10px;'>
+                            <span style='
+                                color: {color_hex}; 
+                                font-size: {word_font_size}px; 
+                                font-weight: bold; 
+                                font-family: Arial, sans-serif;
+                                text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+                            '>{word}</span>
+                        </td>
+                        """
+                    else:
+                        html_content += "<td></td>"
+                
+                html_content += "</tr>"
+            
+            html_content += """
+                </table>
+            </div>
+            """
+            
+            # Set the HTML content
+            self.word_container.setHtml(html_content)
+            print("🎨 DEBUG: Word display updated successfully")
+            
+        except Exception as e:
+            print(f"🚨 ERROR in update_word_display: {e}")
+            import traceback
+            print(f"🚨 Full traceback: {traceback.format_exc()}")
+    
+    def position_corner_countdown(self):
+        """Position the corner countdown timer using unified widget."""
+        if hasattr(self, 'countdown_widget') and self.countdown_widget:
+            self.countdown_widget.position_corner_countdown()
         else:
-            self.app.switch_to_math_task()
+            print(f"🎨 DEBUG: Native Stroop unified countdown widget not available for positioning")
+    
+    def start_stroop_task(self):
+        """Start the native Stroop task with countdown and word generation."""
+        try:
+            print("🚀 DEBUG: Entering start_stroop_task method")
+            
+            if self.task_started:
+                print("🚀 DEBUG: Task already started, returning early")
+                return
+                
+            print("🚀 Native Stroop task STARTED by user...")
+            self.log_action("NATIVE_STROOP_TASK_STARTED", "Native Stroop task started by user button press")
+            
+            # Hide start button
+            if hasattr(self, 'stroop_start_button') and self.stroop_start_button:
+                self.stroop_start_button.hide()
+                self.stroop_start_button.deleteLater()
+                if hasattr(self, 'widgets') and self.stroop_start_button in self.widgets:
+                    self.widgets.remove(self.stroop_start_button)
+            
+            # Mark as started
+            self.task_started = True
+            
+            # Reset randomization state
+            self.reset_randomization_state()
+            
+            # Generate initial words and show scroll area
+            self.current_words = self.generate_word_batch(100)  # Start with 100 words
+            print(f"🚀 DEBUG: Generated {len(self.current_words)} words")
+            
+            self.update_word_display()
+            
+            if hasattr(self, 'scroll_area') and self.scroll_area:
+                self.scroll_area.show()
+                print("🚀 DEBUG: Scroll area shown successfully")
+            
+            # Start countdown if enabled
+            if self.countdown_enabled:
+                try:
+                    if hasattr(self, 'countdown_widget'):
+                        self.countdown_widget.start_countdown(self.auto_transition_from_stroop)
+                        print(f"🎨 Native Stroop countdown started")
+                        
+                        # Position corner countdown with delay
+                        from PyQt6.QtCore import QTimer
+                        QTimer.singleShot(100, self.position_corner_countdown)
+                except Exception as e:
+                    print(f"⚠️ Error setting up countdown: {e}")
+            
+            # Set focus to scroll area for proper scrolling and Enter key handling
+            if hasattr(self, 'scroll_area') and self.scroll_area:
+                self.scroll_area.setFocus()
+            else:
+                self.setFocus()
+            
+            print("🚀 DEBUG: start_stroop_task completed successfully")
+            
+        except Exception as e:
+            print(f"🚨 CRITICAL ERROR in start_stroop_task: {e}")
+            import traceback
+            print(f"🚨 Full traceback: {traceback.format_exc()}")
+            try:
+                self.log_action("NATIVE_STROOP_ERROR", f"Critical error in start_stroop_task: {e}")
+            except:
+                print("🚨 Could not log error action")
+            raise
+    
+    def on_enter_pressed(self):
+        """Handle Enter key in developer mode only."""
+        try:
+            print(f"🎯 DEBUG: on_enter_pressed called, developer_mode: {self.developer_mode}")
+            
+            # Only work in developer mode
+            if not self.developer_mode:
+                print("🎯 Enter key ignored - not in developer mode")
+                return
+                
+            if not self.task_started:
+                # If task hasn't started, start it
+                print("🎯 Enter pressed - Starting Stroop task (developer mode)...")
+                self.start_stroop_task()
+                return
+                
+            if not self.transition_triggered and self.task_started:
+                self.transition_triggered = True
+                print("🎯 Enter pressed in Native Stroop task - Skipping to Math task (developer mode)...")
+                self.log_action("NATIVE_STROOP_ENTER_KEY_DEVELOPER", "Enter key pressed - developer mode skip")
+                
+                # Stop any running countdown
+                try:
+                    if hasattr(self, 'countdown_widget') and self.countdown_widget:
+                        self.countdown_widget.stop_countdown()
+                        print("⏰ Countdown stopped by Enter key")
+                except Exception as countdown_error:
+                    print(f"⚠️ Error stopping countdown: {countdown_error}")
+                
+                # Transition with delay
+                from PyQt6.QtCore import QTimer
+                QTimer.singleShot(100, self.safe_transition_to_next_screen)
+                
+        except Exception as e:
+            print(f"⚠️ Error in Enter key handler: {e}")
+            import traceback
+            print(f"⚠️ Full traceback: {traceback.format_exc()}")
+    
+    def auto_transition_from_stroop(self):
+        """Auto-transition when countdown finishes."""
+        try:
+            if self.app.current_screen == self.screen_name and not self.transition_triggered:
+                self.transition_triggered = True
+                mode_text = "developer mode" if self.developer_mode else "production mode"
+                print(f"⏰ Native Stroop task countdown finished - Auto-transitioning to Math task ({mode_text})")
+                self.log_action("NATIVE_STROOP_COUNTDOWN_AUTO_TRANSITION", f"Native Stroop task countdown completed in {mode_text}, automatically transitioning to math")
+                self.safe_transition_to_next_screen()
+        except Exception as e:
+            print(f"⚠️ Error in auto transition: {e}")
+    
+    def safe_transition_to_next_screen(self):
+        """Safe transition wrapper to prevent crashes."""
+        try:
+            self.transition_to_next_screen()
+        except Exception as e:
+            print(f"⚠️ Error in safe transition: {e}")
+            
+    def transition_to_next_screen(self):
+        """Transition to the next screen (Math task transition)."""
+        try:
+            print("🎨 Native Stroop transition: Moving to Math task transition")
+            
+            # Ensure we're still on the current screen before transitioning
+            if hasattr(self.app, 'current_screen') and self.app.current_screen != self.screen_name:
+                print(f"⚠️ Warning: Already left {self.screen_name}, current screen is {self.app.current_screen}")
+                return
+            
+            # Save any state if needed before transitioning
+            if hasattr(self, 'current_words') and self.current_words:
+                print(f"🎨 Generated {len(self.current_words)} words during session")
+            
+            # Check if the method exists before calling
+            if hasattr(self.app, 'switch_to_math_transition'):
+                self.app.switch_to_math_transition()
+            else:
+                print("⚠️ switch_to_math_transition method not found")
+            
+        except Exception as e:
+            print(f"⚠️ Error in Native Stroop transition: {e}")
+            import traceback
+            print(f"⚠️ Full traceback: {traceback.format_exc()}")
 
 
 class MathTaskScreen(BaseScreen):
@@ -873,40 +1586,18 @@ class MathTaskScreen(BaseScreen):
         self.layout.addWidget(instruction_widget)
         self.layout.addStretch(1)
         
-        # Countdown timer with urgent messaging (if enabled)
+        # Countdown timer using unified widget (if enabled)
         if self.countdown_enabled:
-            # Create main countdown display with urgent messaging
-            self.countdown_label = QLabel(f"⏰ You have {self.countdown_minutes} minute(s) for this task")
-            self.countdown_label.setFont(QFont('Arial', countdown_font_size, QFont.Weight.Bold))
-            self.countdown_label.setStyleSheet(f"""
-                color: {self.colors['countdown_normal']}; 
-                background-color: rgba(0, 0, 0, 150); 
-                padding: 15px; 
-                border-radius: 10px;
-                font-size: {countdown_font_size}px;
-                border: 2px solid {self.colors['countdown_normal']};
-            """)
-            self.countdown_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            self.layout.addWidget(self.countdown_label)
-            self.layout.addStretch(1)
-            
-            # Create corner countdown timer (top-right) - responsive and emphasized
-            self.corner_countdown_label = QLabel(self)
-            self.corner_countdown_label.setText("0:00")
-            self.corner_countdown_label.setFont(QFont('Arial', corner_countdown_font_size, QFont.Weight.Bold))
-            self.corner_countdown_label.setStyleSheet(f"""
-                QLabel {{
-                    color: #00FF00;
-                    background-color: rgba(0, 0, 0, 200);
-                    border: 4px solid white;
-                    padding: 20px;
-                    border-radius: 15px;
-                    font-size: {corner_countdown_font_size}px;
-                }}
-            """)
-            self.corner_countdown_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            self.add_widget(self.corner_countdown_label)
-            self.add_widget(self.countdown_label)
+            # Create unified countdown widget
+            self.countdown_widget = CountdownWidget(
+                parent_screen=self,
+                countdown_minutes=self.countdown_minutes,
+                show_main_display=True,
+                show_corner_display=True
+            )
+            # References for compatibility with existing countdown manager
+            self.countdown_label = self.countdown_widget.countdown_label
+            self.corner_countdown_label = self.countdown_widget.corner_countdown_label
         
         # Start button - emphasized and responsive
         button_width = max(150, min(300, int(screen_width * 0.15)))
@@ -942,29 +1633,11 @@ class MathTaskScreen(BaseScreen):
         self.log_action("MATH_SCREEN_DISPLAYED", "Math task screen displayed")
     
     def position_corner_countdown(self):
-        """Position the corner countdown timer in the top-right corner."""
-        try:
-            if hasattr(self, 'corner_countdown_label') and self.corner_countdown_label:
-                # Get screen dimensions
-                screen_width = self.app.screen_width if hasattr(self.app, 'screen_width') else 1920
-                
-                # Calculate responsive size
-                width = max(180, min(300, int(screen_width * 0.15)))
-                height = max(80, min(150, int(screen_width * 0.08)))
-                
-                # Position in top-right corner with margin
-                margin = 20
-                x_pos = screen_width - width - margin
-                y_pos = margin
-
-                self.corner_countdown_label.setGeometry(x_pos, y_pos, width, height)
-                self.corner_countdown_label.show()
-                self.corner_countdown_label.raise_()
-                print(f"🎯 Math corner countdown positioned at ({x_pos}, {y_pos}) with size ({width}, {height})")
-            else:
-                print(f"🎯 Math corner countdown not available for positioning")
-        except Exception as e:
-            print(f"⚠️ Error positioning math corner countdown: {e}")
+        """Position the corner countdown timer using unified widget."""
+        if hasattr(self, 'countdown_widget') and self.countdown_widget:
+            self.countdown_widget.position_corner_countdown()
+        else:
+            print(f"🎯 Math unified countdown widget not available for positioning")
     
     def start_math_task(self):
         """Start the Math task with countdown."""
@@ -987,24 +1660,16 @@ class MathTaskScreen(BaseScreen):
                 font-weight: bold;
             """)
         
-        # Start countdown if enabled
+        # Start unified countdown if enabled
         if self.countdown_enabled:
             try:
-                # Set up countdown labels
-                if hasattr(self, 'corner_countdown_label'):
-                    self.app.countdown_manager.set_corner_countdown_label(self.corner_countdown_label)
-                if hasattr(self, 'countdown_label'):
-                    self.app.countdown_manager.set_countdown_label(self.countdown_label)
-                
-                # Always auto-transition when countdown finishes
-                self.app.countdown_manager.set_countdown_finish_callback(self.auto_transition_from_math)
-                # Set up urgency styling updates
-                self.app.countdown_manager.set_countdown_update_callback(self.update_countdown_urgency)
-                self.app.countdown_manager.start_countdown(self.countdown_minutes, self.screen_name)
-                
-                # Position corner countdown after screen is shown
-                if hasattr(self, 'corner_countdown_label'):
-                    self.position_corner_countdown()
+                if hasattr(self, 'countdown_widget'):
+                    # Use unified countdown widget to start countdown with urgency callback
+                    self.countdown_widget.start_countdown(
+                        auto_transition_callback=self.auto_transition_from_math,
+                        update_callback=self.update_countdown_urgency
+                    )
+                    print(f"🎯 Math task unified countdown started successfully")
             except Exception as e:
                 print(f"⚠️ Error setting up math task countdown: {e}")
                 # Continue without countdown instead of crashing
@@ -1063,22 +1728,9 @@ class MathTaskScreen(BaseScreen):
             self.transition_to_next_screen()
     
     def transition_to_next_screen(self):
-        """Transition to the next screen (Content Performance Task)."""
-        try:
-            print("🧮 Math transition: Moving to Content Performance Task")
-            if hasattr(self.app, 'content_performance_screen'):
-                self.app.switch_to_screen(self.app.content_performance_screen)
-            else:
-                self.app.switch_to_content_performance()
-        except Exception as e:
-            print(f"⚠️ Error in math task transition: {e}")
-            import traceback
-            print(f"⚠️ Full traceback: {traceback.format_exc()}")
-            # Try to gracefully continue by calling the fallback method
-            try:
-                self.app.switch_to_content_performance()
-            except Exception as fallback_error:
-                print(f"⚠️ Fallback transition also failed: {fallback_error}")
+        """Transition to the next screen (during-study survey 2)."""
+        print("🧮 Math transition: Moving to during-study survey 2")
+        self.app.switch_to_duringstudy2_survey()
 
 
 class ContentPerformanceScreen(BaseScreen):
@@ -1290,24 +1942,10 @@ class ContentPerformanceScreen(BaseScreen):
     
     def transition_to_post_study_rest(self):
         """Transition to post-study relaxation screen."""
-        try:
-            print("📱 Content performance transition: Moving to Post-study relaxation")
-            self.log_action("CONTENT_PERFORMANCE_COMPLETED", 
-                           f"Content performance task completed for: {self.assigned_task}")
-            
-            if hasattr(self.app, 'post_study_rest_screen'):
-                self.app.switch_to_screen(self.app.post_study_rest_screen)
-            else:
-                self.app.switch_to_post_study_rest()
-        except Exception as e:
-            print(f"⚠️ Error in content performance transition: {e}")
-            import traceback
-            print(f"⚠️ Full traceback: {traceback.format_exc()}")
-            # Try to gracefully continue by calling the fallback method
-            try:
-                self.app.switch_to_post_study_rest()
-            except Exception as fallback_error:
-                print(f"⚠️ Fallback transition also failed: {fallback_error}")
+        print("📱 Content performance transition: Moving to Post-study relaxation transition")
+        self.log_action("CONTENT_PERFORMANCE_COMPLETED", 
+                       f"Content performance task completed for: {self.assigned_task}")
+        self.app.switch_to_relaxation_transition()
 
 
 class PostStudyRestScreen(BaseScreen):

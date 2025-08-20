@@ -8,6 +8,7 @@ opencv-python>=4.5.0
 
 # PDF processing for consent forms
 PyPDF2>=3.0.0
+pdf2image>=1.16.0  # For converting PDFs to images with original formatting
 
 # Image processing and icon generation
 Pillow>=8.0.0
@@ -15,9 +16,11 @@ Pillow>=8.0.0
 # Numerical computing for data processing
 numpy>=1.20.0
 
-# Note: tkinter is included with most Python installations
-# If tkinter is missing (rare), install python3-tk on Linux:
-# sudo apt-get install python3-tk
+# PyQt6 for modern GUI with web browser support
+PyQt6>=6.4.0
+PyQt6-WebEngine>=6.4.0
+
+# Note: tkinter replaced with PyQt6 for better web integration
 
 # Optional dependencies for enhanced functionality:
 opencv-contrib-python>=4.5.0  # Additional video codecs

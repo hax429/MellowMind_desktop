@@ -39,7 +39,7 @@ MATH_COUNTDOWN_ENABLED = True
 
 # Countdown durations (in minutes)
 DESCRIPTIVE_COUNTDOWN_MINUTES = 1
-STROOP_COUNTDOWN_MINUTES = 1
+STROOP_COUNTDOWN_MINUTES = 3
 MATH_COUNTDOWN_MINUTES = 1
 RELAXATION_COUNTDOWN_MINUTES = 1  # Hidden countdown for automatic transition
 
@@ -69,19 +69,27 @@ MATH_INSTRUCTION_TEXT = "Please subtract 7s from 4000, and say it aloud"
 CONTENT_PERFORMANCE_TEXT = "Follow the instructions by the instructor and finish your task on Samsung phone"
 CONTENT_PERFORMANCE_BG_COLOR = '#2E5A87'  # Darker blue for content performance screen
 
-# COLOR SCHEME
+# COLOR SCHEME - Optimized for dark backgrounds
 COLORS = {
     'title': '#ff4444',           # Bright red for titles
     'warning': '#ff6666',         # Red for warnings
-    'text_primary': 'white',      # Primary text color
-    'text_secondary': '#aa6666',  # Secondary text color
-    'text_accent': '#ffaa44',     # Accent text color
+    'text_primary': 'white',      # Primary text color - white for dark background
+    'text_secondary': '#e8e8e8',  # Light gray - much higher contrast than #aa6666
+    'text_accent': '#ffaa44',     # Accent text color - yellow/orange for emphasis
+    'text_dim': '#cccccc',        # Medium gray for slightly less important text
+    'pdf_background': '#2a2a2a',  # Dark gray background for PDF content area
+    'pdf_text': '#ffffff',        # Pure white text for PDF content for maximum contrast
     'button_bg': '#ff4444',       # Button background
     'button_active': '#aa0000',   # Button active state
     'notification_bg': '#440000', # Notification background
-    'countdown_normal': '#ffaa44', # Countdown normal state
-    'countdown_warning': '#ff6666', # Countdown warning state
-    'countdown_critical': '#ff0000' # Countdown critical state
+    'countdown_normal': '#00ff00', # Bright green for normal state (higher contrast)
+    'countdown_warning': '#ffff00', # Bright yellow for warning state
+    'countdown_critical': '#ff0000', # Bright red for critical state
+    'consent_title': '#ffffff',    # Bright white for readability on black background
+    'consent_instruction': '#ffaa44', # Orange/yellow for better visibility
+    'consent_agreement': '#ff6666',  # Light red for important agreement text
+    'consent_button_text': '#ffffff', # White text on red button
+    'relaxation_text': '#ffffff'     # Pure white for relaxation overlay text
 }
 
 # TRANSITION SCREEN SETTINGS
@@ -106,3 +114,99 @@ CONSENT_INSTRUCTION = "Please read the study information below carefully. You mu
 CONSENT_BUTTON_TEXT = "I CONSENT TO PARTICIPATE"
 CONSENT_AGREEMENT_TEXT = "By clicking this button, you voluntarily agree to participate in our study."
 CONSENT_SCROLL_REQUIRED = True  # Whether user must scroll to bottom to enable button
+
+# SURVEY URLS AND WEBPAGE SCREEN SETTINGS
+SURVEY_URLS = {
+    'prestudy': 'https://mit.co1.qualtrics.com/jfe/form/SV_dnwU04eKIrvIclg',
+    'poststudy': 'https://mit.co1.qualtrics.com/jfe/form/SV_0HVcg0Fzo8s7Kbs',
+    # Legacy compatibility (can be removed in future versions)
+    'google': 'https://mit.co1.qualtrics.com/jfe/form/SV_dnwU04eKIrvIclg',  # Mapped to prestudy
+    'pre_study': 'https://mit.co1.qualtrics.com/jfe/form/SV_dnwU04eKIrvIclg',
+    'mid_study': 'https://mit.co1.qualtrics.com/jfe/form/SV_midstudysurvey',
+    'post_study': 'https://mit.co1.qualtrics.com/jfe/form/SV_0HVcg0Fzo8s7Kbs'
+}
+
+# Default survey configurations
+DEFAULT_SURVEY_CONFIG = {
+    'title': 'Web Survey',
+    'button_text': 'CONTINUE',
+    'callback': None,
+    'height': 800
+}
+
+# Specific survey configurations
+SURVEY_CONFIGS = {
+    # Primary survey configurations
+    'prestudy': {
+        'title': 'Prestudy Survey',
+        'button_text': 'CONTINUE TO CONSENT FORM',
+        'callback': 'switch_to_consent',
+        'height': 900
+    },
+    'poststudy': {
+        'title': 'Poststudy Survey',
+        'button_text': 'FINISH STUDY',
+        'callback': 'quit_app',
+        'height': 900
+    },
+    # Legacy configurations (can be removed in future versions)
+    'google': {
+        'title': 'Google Search - Real Website',
+        'button_text': 'CONTINUE TO CONSENT FORM',
+        'callback': 'switch_to_consent',
+        'height': 800,
+        'fallback_html': '''
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Google Search - Study Demo</title>
+            <style>
+                body { font-family: Arial, sans-serif; margin: 40px; background: white; }
+                .header { text-align: center; margin-bottom: 30px; }
+                .logo { font-size: 48px; color: #4285F4; font-weight: bold; }
+                .search-box { text-align: center; margin: 30px; }
+                .search-input { width: 400px; height: 40px; font-size: 16px; border: 1px solid #ddd; border-radius: 20px; padding: 0 15px; }
+                .note { background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 30px 0; }
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <div class="logo">Google</div>
+            </div>
+            <div class="search-box">
+                <input type="text" class="search-input" placeholder="Search Google or type a URL">
+            </div>
+            <div class="note">
+                <h3>🌐 Real Google Website Integration</h3>
+                <p>This is the actual Google homepage embedded in the study application.</p>
+                <p>You can interact with it as you normally would in a web browser.</p>
+                <p>When ready, click the "CONTINUE TO CONSENT FORM" button below.</p>
+            </div>
+        </body>
+        </html>
+        '''
+    },
+    'pre_study': {
+        'title': 'Pre-Study Survey',
+        'button_text': 'CONTINUE TO CONSENT',
+        'callback': 'switch_to_consent',
+        'height': 900
+    },
+    'mid_study': {
+        'title': 'Mid-Study Survey',
+        'button_text': 'CONTINUE TO NEXT TASK',
+        'callback': 'switch_to_stroop',
+        'height': 900
+    },
+    'post_study': {
+        'title': 'Post-Study Survey',
+        'button_text': 'FINISH STUDY',
+        'callback': 'switch_to_post_study_rest',
+        'height': 900
+    }
+}
+
+# Pre-study, mid-study, post-study survey URLs (legacy compatibility)
+PRE_STUDY_SURVEY_URL = SURVEY_URLS['pre_study']
+MID_STUDY_SURVEY_URL = SURVEY_URLS['mid_study']
+POST_STUDY_SURVEY_URL = SURVEY_URLS['post_study']

@@ -3,11 +3,14 @@
 import os
 import subprocess
 import sys
-import tkinter as tk
-from tkinter import ttk
+from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
+                             QHBoxLayout, QLabel, QScrollArea, QGridLayout, QFrame)
+from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtGui import QFont, QKeySequence, QShortcut
 
-class CountdownGUI:
+class CountdownGUI(QMainWindow):
     def __init__(self):
+        super().__init__()
         self.setup_sound_path()
         self.current_process = None
         self.generate_countdown_numbers()
@@ -25,55 +28,74 @@ class CountdownGUI:
             print(f"Sound file found: {self.beep_path}")
     
     def setup_gui(self):
-        self.root = tk.Tk()
-        self.root.title("Countdown Task")
-        self.root.geometry("800x600")
-        self.root.configure(bg='black')
+        self.setWindowTitle("Countdown Task")
+        self.setGeometry(100, 100, 800, 600)
+        self.setStyleSheet("background-color: black;")
         
+        # Central widget
+        central_widget = QWidget()
+        self.setCentralWidget(central_widget)
         
-        # Bind spacebar globally
-        self.root.bind('<KeyPress-space>', self.on_spacebar)
-        self.root.bind('<Key>', self.on_key_press)
-        self.root.focus_set()
-        
-        # Main frame
-        self.main_frame = tk.Frame(self.root, bg='black')
-        self.main_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
+        # Main layout
+        main_layout = QVBoxLayout(central_widget)
+        main_layout.setContentsMargins(20, 20, 20, 20)
         
         # Title
-        self.title_label = tk.Label(
-            self.main_frame, 
-            text="Countdown: 4000 - 7 sequence",
-            font=('Arial', 24, 'bold'),
-            fg='white',
-            bg='black'
-        )
-        self.title_label.pack(pady=(0, 20))
+        self.title_label = QLabel("Countdown: 4000 - 7 sequence")
+        self.title_label.setFont(QFont('Arial', 24, QFont.Weight.Bold))
+        self.title_label.setStyleSheet("color: white; background-color: black;")
+        self.title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        main_layout.addWidget(self.title_label)
         
-        # Scrollable frame for numbers
-        self.canvas = tk.Canvas(self.main_frame, bg='black', highlightthickness=0)
-        self.scrollbar = ttk.Scrollbar(self.main_frame, orient="vertical", command=self.canvas.yview)
-        self.scrollable_frame = tk.Frame(self.canvas, bg='black')
+        # Scrollable area for numbers
+        self.scroll_area = QScrollArea()
+        self.scroll_area.setStyleSheet("background-color: black; border: none;")
+        self.scroll_area.setWidgetResizable(True)
         
-        self.scrollable_frame.bind(
-            "<Configure>",
-            lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all"))
-        )
+        # Scrollable widget and layout
+        self.scrollable_widget = QWidget()
+        self.scrollable_widget.setStyleSheet("background-color: black;")
+        self.scroll_layout = QGridLayout(self.scrollable_widget)
         
-        self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
-        self.canvas.configure(yscrollcommand=self.scrollbar.set)
+        self.scroll_area.setWidget(self.scrollable_widget)
+        main_layout.addWidget(self.scroll_area)
         
-        self.canvas.pack(side="left", fill="both", expand=True)
-        self.scrollbar.pack(side="right", fill="y")
+        # Setup keyboard shortcuts
+        self.setup_shortcuts()
         
-        # Bind mouse wheel to canvas
-        self.canvas.bind("<MouseWheel>", self.on_mousewheel)
-        self.root.bind("<Up>", lambda e: self.canvas.yview_scroll(-1, "units"))
-        self.root.bind("<Down>", lambda e: self.canvas.yview_scroll(1, "units"))
-        self.root.bind("<Page_Up>", lambda e: self.canvas.yview_scroll(-10, "units"))
-        self.root.bind("<Page_Down>", lambda e: self.canvas.yview_scroll(10, "units"))
-        self.root.bind("<Right>", self.move_highlight_forward)
-        self.root.bind("<Left>", self.move_highlight_backward)
+    def setup_shortcuts(self):
+        # Spacebar
+        spacebar_shortcut = QShortcut(QKeySequence(Qt.Key.Key_Space), self)
+        spacebar_shortcut.activated.connect(self.on_spacebar)
+        
+        # Escape
+        escape_shortcut = QShortcut(QKeySequence(Qt.Key.Key_Escape), self)
+        escape_shortcut.activated.connect(self.close_app)
+        
+        # Arrow keys
+        up_shortcut = QShortcut(QKeySequence(Qt.Key.Key_Up), self)
+        up_shortcut.activated.connect(lambda: self.scroll_area.verticalScrollBar().setValue(
+            self.scroll_area.verticalScrollBar().value() - 50))
+        
+        down_shortcut = QShortcut(QKeySequence(Qt.Key.Key_Down), self)
+        down_shortcut.activated.connect(lambda: self.scroll_area.verticalScrollBar().setValue(
+            self.scroll_area.verticalScrollBar().value() + 50))
+        
+        # Page Up/Down
+        pageup_shortcut = QShortcut(QKeySequence(Qt.Key.Key_PageUp), self)
+        pageup_shortcut.activated.connect(lambda: self.scroll_area.verticalScrollBar().setValue(
+            self.scroll_area.verticalScrollBar().value() - 200))
+        
+        pagedown_shortcut = QShortcut(QKeySequence(Qt.Key.Key_PageDown), self)
+        pagedown_shortcut.activated.connect(lambda: self.scroll_area.verticalScrollBar().setValue(
+            self.scroll_area.verticalScrollBar().value() + 200))
+        
+        # Left/Right for highlight
+        left_shortcut = QShortcut(QKeySequence(Qt.Key.Key_Left), self)
+        left_shortcut.activated.connect(self.move_highlight_backward)
+        
+        right_shortcut = QShortcut(QKeySequence(Qt.Key.Key_Right), self)
+        right_shortcut.activated.connect(self.move_highlight_forward)
     
     def generate_countdown_numbers(self):
         self.numbers = []
@@ -88,8 +110,10 @@ class CountdownGUI:
     
     def setup_display(self):
         # Clear existing numbers
-        for widget in self.scrollable_frame.winfo_children():
-            widget.destroy()
+        for i in reversed(range(self.scroll_layout.count())):
+            child = self.scroll_layout.itemAt(i).widget()
+            if child:
+                child.deleteLater()
         
         self.number_labels = []
         
@@ -110,41 +134,33 @@ class CountdownGUI:
             # Highlight style for selected number
             if i == self.highlighted_index:
                 bg_color = 'darkblue'
-                border_color = 'white'
-                border_width = 4
+                border_style = "border: 4px solid white;"
             else:
                 bg_color = 'black'
-                border_color = 'gray'
-                border_width = 2
+                border_style = "border: 2px solid gray;"
             
-            number_label = tk.Label(
-                self.scrollable_frame,
-                text=str(number),
-                font=('Arial', 32, 'bold'),
-                fg=color,
-                bg=bg_color,
-                width=8,
-                relief='ridge',
-                borderwidth=border_width,
-                highlightbackground=border_color,
-                highlightthickness=2 if i == self.highlighted_index else 0
-            )
-            number_label.grid(row=row, column=col, padx=5, pady=5, sticky='nsew')
+            number_label = QLabel(str(number))
+            number_label.setFont(QFont('Arial', 32, QFont.Weight.Bold))
+            number_label.setStyleSheet(f"""
+                color: {color};
+                background-color: {bg_color};
+                {border_style}
+                padding: 10px;
+                min-width: 120px;
+                min-height: 60px;
+            """)
+            number_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            number_label.setFixedSize(140, 80)
+            
+            self.scroll_layout.addWidget(number_label, row, col)
             self.number_labels.append(number_label)
-        
-        # Configure grid weights for responsiveness
-        for i in range(cols):
-            self.scrollable_frame.columnconfigure(i, weight=1)
     
-    def on_mousewheel(self, event):
-        self.canvas.yview_scroll(int(-1*(event.delta/120)), "units")
-    
-    def move_highlight_forward(self, event):
+    def move_highlight_forward(self):
         if self.highlighted_index < len(self.numbers) - 1:
             self.highlighted_index += 1
             self.update_highlight()
     
-    def move_highlight_backward(self, event):
+    def move_highlight_backward(self):
         if self.highlighted_index > 0:
             self.highlighted_index -= 1
             self.update_highlight()
@@ -164,23 +180,31 @@ class CountdownGUI:
             
             # Highlight style for selected number
             if i == self.highlighted_index:
-                label.configure(bg='darkblue', borderwidth=4, highlightthickness=2)
+                bg_color = 'darkblue'
+                border_style = "border: 4px solid white;"
             else:
-                label.configure(bg='black', borderwidth=2, highlightthickness=0)
+                bg_color = 'black'
+                border_style = "border: 2px solid gray;"
             
-            label.configure(fg=color)
+            label.setStyleSheet(f"""
+                color: {color};
+                background-color: {bg_color};
+                {border_style}
+                padding: 10px;
+                min-width: 120px;
+                min-height: 60px;
+            """)
     
-    def on_key_press(self, event):
-        if event.keysym == 'Escape':
-            self.stop_current_audio()
-            self.root.quit()
-    
-    def on_spacebar(self, event):
+    def on_spacebar(self):
         if self.current_process and self.current_process.poll() is None:
             print("SPACEBAR PRESSED! Interrupting current audio and starting new one...")
         else:
             print("SPACEBAR PRESSED! Playing sound...")
         self.play_sound()
+    
+    def close_app(self):
+        self.stop_current_audio()
+        self.close()
     
     def stop_current_audio(self):
         if self.current_process and self.current_process.poll() is None:
@@ -205,27 +229,27 @@ class CountdownGUI:
         except Exception as e:
             print(f"Error playing sound: {e}")
     
-    def run(self):
-        print("Countdown GUI Started!")
-        print("Use arrow keys, Page Up/Down, or mouse wheel to scroll")
-        print("Press SPACEBAR to play sound")
-        print("Press ESC to exit")
-        
-        try:
-            self.root.mainloop()
-        except KeyboardInterrupt:
-            print("\nProgram interrupted by user")
-        finally:
-            self.stop_current_audio()
+    def closeEvent(self, event):
+        self.stop_current_audio()
+        event.accept()
 
 def main():
     try:
-        app = CountdownGUI()
-        app.run()
+        app = QApplication(sys.argv)
+        window = CountdownGUI()
+        window.show()
+        
+        print("Countdown GUI Started!")
+        print("Use arrow keys, Page Up/Down to scroll")
+        print("Use Left/Right arrows to move highlight")
+        print("Press SPACEBAR to play sound")
+        print("Press ESC to exit")
+        
+        sys.exit(app.exec())
     except Exception as e:
         print(f"Error: {e}")
         print("Make sure you have the required libraries installed:")
-        print("pip install tkinter")
+        print("pip install PyQt6")
 
 if __name__ == "__main__":
     main()

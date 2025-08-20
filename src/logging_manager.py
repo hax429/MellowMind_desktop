@@ -3,7 +3,46 @@
 import os
 import json
 import time
+import sys
 from datetime import datetime, timezone
+
+
+class ConsoleCapture:
+    """Custom stdout/stderr capture that logs to tech_log while preserving normal output."""
+    
+    def __init__(self, original_stream, logging_manager, stream_name="stdout"):
+        self.original_stream = original_stream
+        self.logging_manager = logging_manager
+        self.stream_name = stream_name
+        self._logging_in_progress = False  # Prevent infinite recursion
+    
+    def write(self, message):
+        # Write to original stream (normal console output)
+        try:
+            self.original_stream.write(message)
+            self.original_stream.flush()
+        except:
+            pass  # Don't break if original stream fails
+        
+        # Log to tech log if message is not empty and not just whitespace
+        if (message.strip() and hasattr(self.logging_manager, 'tech_log_file_path') 
+            and not self._logging_in_progress and self.logging_manager.tech_log_file_path):
+            try:
+                self._logging_in_progress = True
+                self.logging_manager.log_tech_message(
+                    message.strip(), 
+                    level="CONSOLE_OUTPUT" if self.stream_name == "stdout" else "CONSOLE_ERROR"
+                )
+            except:
+                pass  # Don't break if logging fails
+            finally:
+                self._logging_in_progress = False
+    
+    def flush(self):
+        try:
+            self.original_stream.flush()
+        except:
+            pass
 
 
 class LoggingManager:
@@ -19,6 +58,11 @@ class LoggingManager:
         self.action_log_file_path = None
         self.descriptive_response_file_path = None
         self.tech_log_file_path = None
+        
+        # Console output capturing
+        self.original_stdout = sys.stdout
+        self.original_stderr = sys.stderr
+        self.console_capture_active = False
     
     def setup_logging_for_participant(self, participant_id):
         """Set up logging files for a participant."""
@@ -40,6 +84,9 @@ class LoggingManager:
         self.setup_action_logging()
         self.setup_descriptive_response_logging()
         self.setup_tech_logging()
+        
+        # Enable console output capture
+        self.enable_console_capture()
 
     def create_session_info_file(self):
         """Create session information file with metadata."""
@@ -197,12 +244,18 @@ class LoggingManager:
                 "session_duration_seconds": (now - self.session_start_time).total_seconds() if hasattr(self, 'session_start_time') else 0
             }
 
-            with open(self.tech_log_file_path, 'a') as f:
-                f.write(json.dumps(tech_entry) + '\n')
+            # Write directly to file to avoid infinite recursion with console capture
+            with open(self.tech_log_file_path, 'a', encoding='utf-8') as f:
+                f.write(json.dumps(tech_entry, ensure_ascii=False) + '\n')
+                f.flush()  # Ensure immediate write
 
         except Exception as e:
-            # Fallback to regular print if tech logging fails
-            print(f"⚠️ Warning: Could not write to tech log: {e}")
+            # Fallback to original stdout to avoid infinite recursion
+            try:
+                self.original_stdout.write(f"⚠️ Warning: Could not write to tech log: {e}\n")
+                self.original_stdout.flush()
+            except:
+                pass  # Last resort - do nothing to avoid crash
 
     def tech_print(self, message, level="INFO", current_screen="unknown"):
         """Print message to console and log it to tech log file."""
@@ -269,9 +322,38 @@ class LoggingManager:
         except Exception as e:
             print(f"⚠️ Error adding task selection to session info: {e}")
 
+    def enable_console_capture(self):
+        """Enable console output capture to tech log."""
+        if not self.console_capture_active and self.tech_log_file_path:
+            try:
+                # Redirect stdout and stderr to our custom capture objects
+                sys.stdout = ConsoleCapture(self.original_stdout, self, "stdout")
+                sys.stderr = ConsoleCapture(self.original_stderr, self, "stderr")
+                self.console_capture_active = True
+                
+                # Log that capture is now active (this will now be captured too)
+                print(f"🔧 Console output capture enabled - all output will be logged to {os.path.basename(self.tech_log_file_path)}")
+            except Exception as e:
+                print(f"⚠️ Warning: Could not enable console capture: {e}")
+    
+    def disable_console_capture(self):
+        """Disable console output capture and restore normal output."""
+        if self.console_capture_active:
+            try:
+                # Restore original stdout and stderr
+                sys.stdout = self.original_stdout
+                sys.stderr = self.original_stderr
+                self.console_capture_active = False
+                print(f"🔧 Console output capture disabled")
+            except Exception as e:
+                print(f"⚠️ Warning: Could not disable console capture: {e}")
+
     def finalize_session(self):
         """Finalize session by updating session info with end time and statistics."""
         try:
+            # Disable console capture before finalizing
+            self.disable_console_capture()
+            
             if not hasattr(self, 'session_info_file_path'):
                 return
 
@@ -359,3 +441,67 @@ class LoggingManager:
             "percentage_complete": ((countdown_total - countdown_remaining) / countdown_total * 100) if countdown_total > 0 else 0
         }
         self.log_action("COUNTDOWN_STATE", json.dumps(countdown_data), current_screen)
+
+    # Enhanced helper methods for comprehensive logging
+    
+    def log_key_press(self, key, context="", current_screen="unknown"):
+        """Log key press events."""
+        details = f"Key pressed: {key}"
+        if context:
+            details += f" - {context}"
+        self.log_action("KEY_PRESS", details, current_screen)
+    
+    def log_button_click(self, button_name, context="", current_screen="unknown"):
+        """Log button click events."""
+        details = f"Button clicked: {button_name}"
+        if context:
+            details += f" - {context}"
+        self.log_action("BUTTON_CLICK", details, current_screen)
+    
+    def log_text_input(self, input_type, text_length=0, word_count=0, context="", current_screen="unknown"):
+        """Log text input events."""
+        details = f"Text input: {input_type}, length: {text_length}, words: {word_count}"
+        if context:
+            details += f" - {context}"
+        self.log_action("TEXT_INPUT", details, current_screen)
+    
+    def log_survey_interaction(self, survey_type, interaction_type, details="", current_screen="unknown"):
+        """Log survey/webpage interactions."""
+        action_details = f"Survey: {survey_type}, action: {interaction_type}"
+        if details:
+            action_details += f" - {details}"
+        self.log_action("SURVEY_INTERACTION", action_details, current_screen)
+    
+    def log_countdown_event(self, event_type, time_remaining=0, details="", current_screen="unknown"):
+        """Log countdown-related events."""
+        action_details = f"Countdown {event_type}"
+        if time_remaining > 0:
+            action_details += f", time remaining: {time_remaining}s"
+        if details:
+            action_details += f" - {details}"
+        self.log_action("COUNTDOWN_EVENT", action_details, current_screen)
+    
+    def log_navigation(self, from_screen, to_screen, trigger="", current_screen="unknown"):
+        """Log navigation between screens."""
+        details = f"Navigation: {from_screen} → {to_screen}"
+        if trigger:
+            details += f", trigger: {trigger}"
+        self.log_action("NAVIGATION", details, current_screen)
+    
+    def log_task_progress(self, task_type, milestone, value=0, details="", current_screen="unknown"):
+        """Log task progress milestones."""
+        action_details = f"Task progress: {task_type}, milestone: {milestone}"
+        if value > 0:
+            action_details += f", value: {value}"
+        if details:
+            action_details += f" - {details}"
+        self.log_action("TASK_PROGRESS", action_details, current_screen)
+    
+    def log_error_event(self, error_type, error_message, context="", current_screen="unknown"):
+        """Log error events."""
+        details = f"Error: {error_type} - {error_message}"
+        if context:
+            details += f" - Context: {context}"
+        self.log_action("ERROR", details, current_screen)
+        # Also log to tech log with higher priority
+        self.log_tech_message(details, level="ERROR", current_screen=current_screen)

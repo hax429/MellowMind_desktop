@@ -2,7 +2,7 @@
 
 import json
 import os
-from config import TASK_ASSIGNMENTS_FILE
+from config import TASK_ASSIGNMENTS_FILE, TASK_SELECTION_MODE
 
 
 class TaskManager:
@@ -168,3 +168,120 @@ class TaskManager:
     def get_selected_task(self):
         """Get the selected task."""
         return self.selected_task
+    
+    def get_task_descriptions(self):
+        """Get detailed task descriptions for all available tasks."""
+        return {
+            "mandala": {
+                "name": "🎨 Mandala Drawing Task",
+                "brief": "Create your own mandala drawing",
+                "description": "Express your creativity by drawing a beautiful mandala pattern. This meditative art form helps you focus and relax while creating something uniquely yours."
+            },
+            "diary": {
+                "name": "📝 Personal Journal Task", 
+                "brief": "Write in your personal journal",
+                "description": "Reflect on your thoughts and feelings by writing in a personal journal. This introspective activity helps you process your experiences and emotions."
+            },
+            "mindfulness": {
+                "name": "🧘 Mindfulness Video Task",
+                "brief": "Watch a mindfulness video",
+                "description": "Watch and follow along with a calming mindfulness video. This guided experience will help you practice mindfulness techniques and achieve a peaceful state of mind."
+            }
+        }
+    
+    def get_content_performance_instructions(self, participant_id=None):
+        """Get instructions for content performance task based on selection mode."""
+        task_descriptions = self.get_task_descriptions()
+        
+        if TASK_SELECTION_MODE == "self_selection":
+            # Self-selection mode: show all tasks and let user choose
+            instruction_text = "Please choose one of the following tasks to perform on the Samsung phone:\n\n"
+            
+            for task_key, task_info in task_descriptions.items():
+                instruction_text += f"{task_info['name']}\n"
+                instruction_text += f"• {task_info['description']}\n\n"
+            
+            instruction_text += "You can select any task that appeals to you most. Follow the instructions on the Samsung phone to complete your chosen task."
+            
+            return {
+                "mode": "self_selection",
+                "instruction_text": instruction_text,
+                "assigned_task": None,
+                "show_task_options": True,
+                "task_options": task_descriptions
+            }
+            
+        elif TASK_SELECTION_MODE == "random_assigned":
+            # Random assignment mode: show specific assigned task
+            if participant_id:
+                # Get the assigned task for this participant
+                assigned_task = self.get_assigned_task_for_participant(participant_id)
+            else:
+                # Fallback to mandala if no participant ID
+                assigned_task = "mandala"
+            
+            task_info = task_descriptions.get(assigned_task, task_descriptions["mandala"])
+            
+            instruction_text = f"Your assigned task is: {task_info['name']}\n\n"
+            instruction_text += f"{task_info['description']}\n\n"
+            instruction_text += f"Please go to the Samsung phone and complete your {task_info['brief']} task. "
+            instruction_text += "Follow the specific instructions on the Samsung phone to complete this task."
+            
+            return {
+                "mode": "random_assigned", 
+                "instruction_text": instruction_text,
+                "assigned_task": assigned_task,
+                "assigned_task_info": task_info,
+                "show_task_options": False,
+                "task_options": None
+            }
+        
+        else:
+            # Fallback for unknown mode
+            return {
+                "mode": "unknown",
+                "instruction_text": "Please follow the instructions on the Samsung phone to complete your task.",
+                "assigned_task": "mandala",
+                "show_task_options": False,
+                "task_options": None
+            }
+    
+    def get_assigned_task_for_participant(self, participant_id):
+        """Get the assigned task for a specific participant from the assignments file."""
+        try:
+            with open(TASK_ASSIGNMENTS_FILE, 'r') as f:
+                data = json.load(f)
+            
+            assignments = data.get("assignments", {})
+            assigned_task = assignments.get(participant_id)
+            
+            if assigned_task:
+                print(f"🎯 Found existing assignment for {participant_id}: {assigned_task}")
+                return assigned_task
+            else:
+                # If no assignment exists, create one using rotation
+                print(f"🎯 No existing assignment for {participant_id}, creating new assignment")
+                return self.get_random_assigned_task(participant_id)
+                
+        except Exception as e:
+            print(f"⚠️ Error getting assigned task for participant: {e}")
+            return "mandala"  # Default fallback
+    
+    def save_self_selected_task(self, participant_id, selected_task):
+        """Save a self-selected task choice."""
+        try:
+            # Update the selected task
+            self.set_selected_task(selected_task)
+            
+            # Save to assignments file
+            self.save_user_task_selection(participant_id, selected_task)
+            
+            # Log the selection
+            self.log_task_selection(selected_task, participant_id, "self_selection")
+            
+            print(f"🎯 User self-selected task: {selected_task}")
+            return True
+            
+        except Exception as e:
+            print(f"⚠️ Error saving self-selected task: {e}")
+            return False

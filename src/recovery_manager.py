@@ -194,15 +194,25 @@ class RecoveryManager:
 
         # Restore the text if found
         if partial_text:
-            import tkinter as tk
-            response_text_widget.delete('1.0', tk.END)
-            response_text_widget.insert('1.0', partial_text)
+            # PyQt6 compatible text widget update
+            if hasattr(response_text_widget, 'setPlainText'):
+                # PyQt6 QTextEdit
+                response_text_widget.setPlainText(partial_text)
+            elif hasattr(response_text_widget, 'delete') and hasattr(response_text_widget, 'insert'):
+                # tkinter compatibility
+                import tkinter as tk
+                response_text_widget.delete('1.0', tk.END)
+                response_text_widget.insert('1.0', partial_text)
+                # Position cursor at end
+                response_text_widget.mark_set(tk.INSERT, tk.END)
             update_word_count_callback()
             print(f"🔄 Restored {len(partial_text)} characters of partial text")
-
-            # Position cursor at end
-            response_text_widget.mark_set(tk.INSERT, tk.END)
-            response_text_widget.focus_set()
+            
+            # Set focus - PyQt6 compatible
+            if hasattr(response_text_widget, 'setFocus'):
+                response_text_widget.setFocus()
+            elif hasattr(response_text_widget, 'focus_set'):
+                response_text_widget.focus_set()
 
         # Restore countdown timer if found and countdown is enabled
         if countdown_remaining and countdown_enabled:

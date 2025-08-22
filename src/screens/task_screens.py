@@ -320,9 +320,9 @@ class RelaxationScreen(BaseScreen):
         self.log_action("RELAXATION_COUNTDOWN_STARTED", f"Hidden countdown started for {minutes} minutes")
     
     def transition_to_next_screen(self):
-        """Transition to the next screen (during-study survey 1)."""
-        print("🧘 Relaxation transition: Moving to during-study survey 1")
-        self.app.switch_to_duringstudy1_survey()
+        """Transition to the next screen (descriptive task transition)."""
+        print("🧘 Relaxation transition: Moving to descriptive task transition")
+        self.app.switch_to_descriptive_transition()
 
 
 class DescriptiveTaskScreen(BaseScreen):
@@ -1728,9 +1728,9 @@ class MathTaskScreen(BaseScreen):
             self.transition_to_next_screen()
     
     def transition_to_next_screen(self):
-        """Transition to the next screen (during-study survey 2)."""
-        print("🧮 Math transition: Moving to during-study survey 2")
-        self.app.switch_to_duringstudy2_survey()
+        """Transition to the next screen (content performance transition)."""
+        print("🧮 Math transition: Moving to content performance transition")
+        self.app.switch_to_content_performance_transition()
 
 
 class ContentPerformanceScreen(BaseScreen):
@@ -2163,15 +2163,15 @@ class PostStudyRestScreen(BaseScreen):
         self.app.quit_app()
     
     def transition_to_poststudy_survey(self):
-        """Transition to the poststudy survey."""
+        """Transition to during-study survey 2."""
         try:
-            print("📊 Post-study rest transition: Moving to Poststudy Survey")
-            self.log_action("POST_STUDY_REST_TO_SURVEY", "Transitioning to poststudy survey")
+            print("📊 Post-study rest transition: Moving to During Study Survey 2")
+            self.log_action("POST_STUDY_REST_TO_SURVEY", "Transitioning to during-study survey 2")
             
-            if hasattr(self.app, 'switch_to_poststudy_survey'):
-                self.app.switch_to_poststudy_survey()
+            if hasattr(self.app, 'switch_to_duringstudy2_survey'):
+                self.app.switch_to_duringstudy2_survey()
             else:
-                print("⚠️ No poststudy survey method available")
+                print("⚠️ No during-study survey 2 method available")
         except Exception as e:
             print(f"⚠️ Error in post-study rest transition: {e}")
             import traceback

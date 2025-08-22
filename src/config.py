@@ -208,7 +208,7 @@ CONSENT_SUBTITLE_SIZE = 28   # Font size for subtitles (Study Overview, Devices 
 # SURVEY URLS AND WEBPAGE SCREEN SETTINGS
 SURVEY_URLS = {
     'prestudy': 'https://mit.co1.qualtrics.com/jfe/form/SV_dnwU04eKIrvIclg',
-    'duringstudy1': 'https://mit.co1.qualtrics.com/jfe/form/SV_9LVfHpGZa0PwYCO',  # To be updated with actual URL
+    'duringstudy1': 'https://mit.co1.qualtrics.com/jfe/form/SV_cBC1oR0BvW9gmh0',  # To be updated with actual URL
     'duringstudy2': 'https://mit.co1.qualtrics.com/jfe/form/SV_9LVfHpGZa0PwYCO',  # To be updated with actual URL
     'poststudy': 'https://mit.co1.qualtrics.com/jfe/form/SV_0HVcg0Fzo8s7Kbs'
 }
@@ -226,20 +226,20 @@ SURVEY_CONFIGS = {
     # Primary survey configurations
     'prestudy': {
         'title': 'Prestudy Survey',
+        'button_text': 'CONTINUE TO PRE STRESS SURVEY',
+        'callback': 'switch_to_duringstudy1_survey',
+        'height': 900
+    },
+    'duringstudy1': {
+        'title': 'Pre Stress Survey',
         'button_text': 'CONTINUE TO RELAXATION',
         'callback': 'switch_to_relaxation',
         'height': 900
     },
-    'duringstudy1': {
-        'title': 'During Study Survey 1',
-        'button_text': 'CONTINUE TO DESCRIPTIVE TASK',
-        'callback': 'switch_to_descriptive_transition',
-        'height': 900
-    },
     'duringstudy2': {
-        'title': 'During Study Survey 2',
-        'button_text': 'CONTINUE TO CONTENT PERFORMANCE TASK',
-        'callback': 'switch_to_content_performance_transition',
+        'title': 'Post Stress Survey',
+        'button_text': 'CONTINUE TO POSTSTUDY SURVEY',
+        'callback': 'switch_to_poststudy_survey',
         'height': 900
     },
     'poststudy': {
